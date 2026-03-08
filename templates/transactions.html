@@ -1,0 +1,59 @@
+{% extends 'layout.html' %}
+
+{% block content %}
+    <h1>Transactions</h1>
+    <p>Here you can view and manage your financial transactions.</p>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Name</th>
+                    <th>Net Amount</th>
+                    <th>Units</th>
+                    <th>Rate</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tr in transactions %}
+                <tr>
+                    <td>
+                        <span class="badge {% if tr.type == 'Buy' %}badge-buy{% else %}badge-sell{% endif %}">
+                            {{ tr.type }}
+                        </span>
+                    </td>
+                    <td>{{ tr.date }}</td>
+                    <td>{{ tr.name }}</td>
+                    <td>
+                        {{ "%.2f"|format(tr.units * tr.rate) }}
+                    </td>
+                    <td>{{ tr.units }}</td>
+                    <td>{{ "%.2f"|format(tr.rate) }}</td>
+                    <td>
+                        <button class="btn-warning" title="Edit">&#9998;</button>
+                        <button class="btn-danger" title="Delete">&#10005;</button>
+                    </td>
+                </tr>
+                {% if tr.charges %}
+                <tr class="charges-row">
+                    <td></td>
+                    <td></td>
+                    <td>&#8627; Charges</td>
+                    <td>{{ "%.2f"|format(tr.charges) }}</td>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                </tr>
+                {% endif %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--muted);">No transactions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock content %}

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:;">
+
+    <title>
+        {% if title %}
+            {{ title }} 
+        {% else %}
+                Portfolio Manager 
+        {% endif %}
+    </title>
+
+    <link rel="stylesheet" href="{{ url_for('static', path='css/styles.css') }}">
+    <script src="{{ url_for('static', path='js/utils.js') }}"></script>
+    {# Base paths for static assets — available to all templates #}
+    {% set icons_path = url_for('static', path='icons') %}
+    {% set images_path = url_for('static', path='images') %}
+
+</head>
+<body>
+
+<div class="navbar" id="navbar">
+    <div class="header">
+        <div class="header-brand">
+            <a href="{{ url_for('home') }}">Portfolio Manager</a>
+            {% if title and title != 'Home' %}
+                <span class="navbar-page-name"> {{ title }}</span>
+            {% endif %}
+        </div>
+        <button id="theme-toggle" aria-label="Toggle dark mode">&#9790;</button>
+    </div>
+
+    <!-- Main content -->
+    <main class="main-content" id="mainContent">
+        {% block content %}
+        {% endblock content %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer" id="footer">
+        <p>&copy; 2026 First Last. All rights reserved.</p>
+    </footer>
+
+</div>
+
+</body>
+</html>
+
