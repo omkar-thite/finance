@@ -1,5 +1,5 @@
 :root {
-        --bg-color: #f4f4f9;
+        --bg-color: #e9e9e9;
         --card-bg: #ffffff;
         --text-color: #333333;
         --border-color: #dddddd;
@@ -11,6 +11,9 @@
         --muted: #6b7280;
         --navbar-bg: #2563eb;
         --charges-row-bg: #f9fafb;
+        --btn-auth-bg: rgba(255, 255, 255, 0.15);
+        --btn-auth-bg-hover: rgba(255, 255, 255, 0.28);
+        --btn-auth-border: rgba(255, 255, 255, 0.55);
     }
 
     [data-theme="dark"] {
@@ -26,6 +29,9 @@
         --muted: #9ca3af;
         --navbar-bg: #0a0f1e;
         --charges-row-bg: #181818;
+        --btn-auth-bg: rgba(255, 255, 255, 0.08);
+        --btn-auth-bg-hover: rgba(255, 255, 255, 0.18);
+        --btn-auth-border: rgba(255, 255, 255, 0.3);
     }
 
     body {
@@ -83,6 +89,39 @@
         content: '/';
         margin: 0 8px;
         color: rgba(255, 255, 255, 0.4);
+    }
+
+    .navbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .btn-auth {
+        padding: 8px 22px;
+        border-radius: 6px;
+        border: 1.5px solid var(--btn-auth-border);
+        background-color: var(--btn-auth-bg);
+        color: white;
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-decoration: none;
+        cursor: pointer;
+        transition: background 0.15s, border-color 0.15s;
+        margin: 3px;
+    }
+
+    .btn-auth:hover {
+        background-color: var(--btn-auth-bg-hover);
+        border-color: rgba(255, 255, 255, 0.85);
+    }
+
+    .navbar-divider {
+        display: inline-block;
+        width: 5px;
+        height: 24px;
+        background-color: rgba(255, 255, 255, 0.3);
+        margin: 0 10px;
     }
 
     #theme-toggle {
@@ -166,3 +205,29 @@
     .text-green { color: var(--success-color); font-weight: bold; }
     .text-red { color: var(--danger-color); font-weight: bold; }
     .summary { text-align: right; font-size: 1.2rem; font-weight: bold; margin-top: 10px; }
+
+/* --- Home Page Layout --- */
+.home-container {
+    margin-top: 2rem;
+}
+
+.welcome-block {
+    display: flex;
+    background-color: var(--card-bg);
+    padding: 32px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.welcome-text h1 {
+    margin: 0;
+    padding-bottom: 0;
+    border-bottom: none; 
+}
+
+.subtitle {
+    color: var(--muted);
+    margin: 8px 0 0 0;
+    font-size: 1.1rem;
+}

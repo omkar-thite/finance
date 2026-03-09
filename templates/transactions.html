@@ -11,9 +11,9 @@
                     <th>Type</th>
                     <th>Date</th>
                     <th>Name</th>
-                    <th>Net Amount</th>
                     <th>Units</th>
                     <th>Rate</th>
+                    <th>Net Amount</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -21,17 +21,17 @@
                 {% for tr in transactions %}
                 <tr>
                     <td>
-                        <span class="badge {% if tr.type == 'Buy' %}badge-buy{% else %}badge-sell{% endif %}">
-                            {{ tr.type }}
+                        <span class="badge {% if tr.type.value == 'buy' %}badge-buy{% else %}badge-sell{% endif %}">
+                            {{ tr.type.value | capitalize }}
                         </span>
                     </td>
                     <td>{{ tr.date }}</td>
-                    <td>{{ tr.name }}</td>
+                    <td>{{ tr.entity_name }}</td>
+                    <td>{{ tr.units }}</td>
+                    <td>{{ "%.2f"|format(tr.rate) }}</td>
                     <td>
                         {{ "%.2f"|format(tr.units * tr.rate) }}
                     </td>
-                    <td>{{ tr.units }}</td>
-                    <td>{{ "%.2f"|format(tr.rate) }}</td>
                     <td>
                         <button class="btn-warning" title="Edit">&#9998;</button>
                         <button class="btn-danger" title="Delete">&#10005;</button>
@@ -42,9 +42,9 @@
                     <td></td>
                     <td></td>
                     <td>&#8627; Charges</td>
+                    <td></td>
+                    <td></td>
                     <td>{{ "%.2f"|format(tr.charges) }}</td>
-                    <td></td>
-                    <td></td>
                     <td></td>
                 </tr>
                 {% endif %}

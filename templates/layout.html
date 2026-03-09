@@ -30,7 +30,10 @@
                 <span class="navbar-page-name"> {{ title }}</span>
             {% endif %}
         </div>
-        <button id="theme-toggle" aria-label="Toggle dark mode">&#9790;</button>
+        <div class="navbar-actions">
+            {% block navbar_actions %}{% endblock %}
+            <button id="theme-toggle" aria-label="Toggle dark mode">&#9790;</button>
+        </div>
     </div>
 
     <!-- Main content -->
