@@ -8,10 +8,10 @@ from pathlib import Path
 from schema import CreateTransaction, ResponseTransaction, TypeEnum
 app = FastAPI()
 
-STATIC_DIR = Path(__file__).resolve().parent / "static"
 BUY, SELL = TypeEnum.BUY, TypeEnum.SELL
 
 app.mount("/static", StaticFiles(directory='static'), name='static')
+app.mount('/media', StaticFiles(directory='media'), name='media')
 
 templates = Jinja2Templates(directory='templates')
 
@@ -91,46 +91,70 @@ transactions: list[dict] = [
     },
 ]
 
+# ----------------- HTML ENDPOINTS --------------- # 
+
 @app.get('/', name='home', include_in_schema=False)
-def home(request: Request):
+def home_page(request: Request):
     return templates.TemplateResponse(request, 
                                       name='home.html')
 
+@app.get('/user', name='home', include_in_schema=False)
+def user_home_page(request: Request):
+    # TODO : Implement home page for logged in user
+    pass
+
+# All transactions
 @app.get('/transactions', include_in_schema=False)
-def get_all_transactions(request: Request):
+def all_transactions(request: Request):
     return templates.TemplateResponse(request,
                                       name='transactions.html',
                                       context={'transactions': transactions})
 
 
-@app.get('/user_transactions/{user_id}', include_in_schema=False)
-def get_user_transactions(request: Request, user_id: int):
+@app.get('/user_transactions/{user_id}', include_in_schema=False, name='user_transactions')
+def user_transactions_page(request: Request, user_id: int):
     result = [tr for tr in transactions if tr['user_id'] == user_id]
+    if not result:
+        return templates.TemplateResponse(request,
+                                          name='error.html', 
+                                          context={'status_code': status.HTTP_404_NOT_FOUND, 
+                                                   'message': 'Resource not found'})
     return templates.TemplateResponse(request,
                                       name='transactions.html',
                                       context={'transactions': result, 'user_id': user_id})
 
-# API transaction endpoint
+
+
+# --------------- API ENDPOINTS -------------------------#
+
+
+# Get transaction by id
 @app.get('/api/transactions/{id}', response_model=ResponseTransaction)
-def get_transactions(id: int):
-    for tr in transactions:
-        if tr['id'] == id:
-            return tr
-    
+def get_transaction_api(id: int):
+    # TODO   
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                         detail='Transaction not found.')
 
+# Get all transaction of specific user 
 @app.get('/api/user_transactions/{user_id}', response_model=list[ResponseTransaction])
 def get_user_transactions_api(user_id: int) -> list[dict]:
-    result = []
-    for tr in transactions:
-        if tr['user_id'] == user_id:
-            result.append(tr)
-        
-    return result
+    pass
 
 
-
+# Get all transactions
 @app.get('/api/transactions', response_model=list[ResponseTransaction])
 def get_all_transactions_api(request: Request):
     return transactions
+
+
+
+
+# --------- EXCEPTION HANDLERS --------------------------# 
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc: HTTPException):
+    return templates.TemplateResponse(request,
+                                      name='error.html',
+                                      status_code=status.HTTP_404_NOT_FOUND,
+                                      context={'status_code': status.HTTP_404_NOT_FOUND,
+                                               'message': 'Page not found'})

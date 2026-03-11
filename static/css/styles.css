@@ -1,7 +1,7 @@
 :root {
-        --bg-color: #e9e9e9;
+        --bg-color: #ffffff;
         --card-bg: #ffffff;
-        --text-color: #333333;
+        --text-color: #000000;
         --border-color: #dddddd;
         --primary-color: #2563eb;
         --success-color: #16a34a;
@@ -11,9 +11,10 @@
         --muted: #6b7280;
         --navbar-bg: #2563eb;
         --charges-row-bg: #f9fafb;
-        --btn-auth-bg: rgba(255, 255, 255, 0.15);
+        --btn-auth-bg: transparent;
         --btn-auth-bg-hover: rgba(255, 255, 255, 0.28);
         --btn-auth-border: rgba(255, 255, 255, 0.55);
+        --error-color: #ad3e3e;
     }
 
     [data-theme="dark"] {
@@ -27,11 +28,12 @@
         --warning-color: #fbbf24;
         --header-bg: #2d2d2d;
         --muted: #9ca3af;
-        --navbar-bg: #0a0f1e;
+        --navbar-bg: #242a3b;
         --charges-row-bg: #181818;
         --btn-auth-bg: rgba(255, 255, 255, 0.08);
         --btn-auth-bg-hover: rgba(255, 255, 255, 0.18);
         --btn-auth-border: rgba(255, 255, 255, 0.3);
+        --error-color: #ad3e3e;
     }
 
     body {
@@ -102,7 +104,7 @@
         border-radius: 6px;
         border: 1.5px solid var(--btn-auth-border);
         background-color: var(--btn-auth-bg);
-        color: white;
+        color: var(--text-color);
         font-size: 0.9rem;
         font-weight: 600;
         text-decoration: none;
@@ -120,7 +122,7 @@
         display: inline-block;
         width: 5px;
         height: 24px;
-        background-color: rgba(255, 255, 255, 0.3);
+        background-color: transparent;
         margin: 0 10px;
     }
 
@@ -223,11 +225,91 @@
 .welcome-text h1 {
     margin: 0;
     padding-bottom: 0;
-    border-bottom: none; 
+    border-bottom: none;
+    color: var(--primary-color);
 }
 
 .subtitle {
     color: var(--muted);
     margin: 8px 0 0 0;
     font-size: 1.1rem;
+}
+
+.welcome-divider {
+    height: 3px;
+    width: 100%;
+    margin-top: 20px;
+    background: linear-gradient(to right, var(--primary-color), transparent);
+    border-radius: 2px;
+}
+
+/* --- Error Page --- */
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 24px;
+}
+
+.error-code {
+    font-size: 6rem;
+    font-weight: 800;
+    color: var(--error-color);
+    border-bottom: none;
+    margin: 0;
+    padding: 0;
+    line-height: 1;
+}
+
+.error-message {
+    font-size: 1.15rem;
+    color: var(--muted);
+    margin: 16px 0 32px;
+    max-width: 520px;
+}
+
+.error-details {
+    width: 100%;
+    max-width: 720px;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 32px;
+    text-align: left;
+}
+
+.error-details summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 0.9rem;
+    user-select: none;
+}
+
+.error-details pre {
+    margin: 12px 0 4px;
+    font-size: 0.82rem;
+    color: var(--text-color);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-x: auto;
+}
+
+.btn-home {
+    display: inline-block;
+    padding: 10px 28px;
+    background-color: var(--primary-color);
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: opacity 0.15s;
+}
+
+.btn-home:hover {
+    opacity: 0.85;
 }

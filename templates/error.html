@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+
+{% set title = "Error " ~ (status_code or "") %}
+
+{% block content %}
+<div class="error-container">
+    <h1 class="error-code">{{ status_code or "Error" }}</h1>
+
+    {% if message %}
+        <p class="error-message">{{ message }}</p>
+    {% endif %}
+
+    {% if exception %}
+        <details class="error-details">
+            <summary>Details</summary>
+            <pre>{{ exception }}</pre>
+        </details>
+    {% endif %}
+
+    <a href="{{ url_for('home') }}" class="btn-home">Go Home</a>
+</div>
+{% endblock content %}
