@@ -1,14 +1,27 @@
-from fastapi import FastAPI, Request, status
+from typing import Annotated
+
+from fastapi import FastAPI, Request, status, Depends
 from fastapi.exceptions import HTTPException, RequestValidationError
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from pathlib import Path
 
-from schema import CreateTransaction, ResponseTransaction, TypeEnum
-app = FastAPI()
+from schema import CreateTrx, ResponseTrx, CreateUser, ResponseUser, TypeEnum
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+import models
+from database import engine, get_db, Base
+
 
 BUY, SELL = TypeEnum.BUY, TypeEnum.SELL
+
+
+# Create tables if not exists
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI()
 
 app.mount("/static", StaticFiles(directory='static'), name='static')
 app.mount('/media', StaticFiles(directory='media'), name='media')
@@ -16,80 +29,6 @@ app.mount('/media', StaticFiles(directory='media'), name='media')
 templates = Jinja2Templates(directory='templates')
 
 
-transactions: list[dict] = [
-    {
-        'id': 1,
-        'user_id': 12,
-        'type': BUY,
-        'date': '2026-01-10',
-        'entity_name': 'Apple Inc.',
-        'units': 10,
-        'rate': 185.50,
-    },
-    {
-        'id': 2,
-        'user_id': 12,
-        'type': SELL,
-        'date': '2026-01-28',
-        'entity_name': 'Tesla',
-        'units': 5,
-        'rate': 215.00,
-    },
-    {
-        'id': 3,
-        'user_id': 12,
-        'type': BUY,
-        'date': '2026-02-14',
-        'entity_name': 'Google',
-        'units': 3,
-        'rate': 2750.00,
-    },
-    {
-        'id': 4,
-        'user_id': 12,
-        'type': BUY,
-        'date': '2026-03-01',
-        'entity_name': 'NVIDIA',
-        'units': 8,
-        'rate': 875.25,
-    },
-    {
-        'id': 5,
-        'user_id': 15,
-        'type': BUY,
-        'date': '2026-01-05',
-        'entity_name': 'Microsoft',
-        'units': 6,
-        'rate': 320.00,
-    },
-    {
-        'id': 6,
-        'user_id': 15,
-        'type': SELL,
-        'date': '2026-02-20',
-        'entity_name': 'Amazon',
-        'units': 4,
-        'rate': 3450.00,
-    },
-    {
-        'id': 7,
-        'user_id': 15,
-        'type': BUY,
-        'date': '2026-02-25',
-        'entity_name': 'Meta',
-        'units': 12,
-        'rate': 490.75,
-    },
-    {
-        'id': 8,
-        'user_id': 15,
-        'type': SELL,
-        'date': '2026-03-05',
-        'entity_name': 'Netflix',
-        'units': 7,
-        'rate': 610.00,
-    },
-]
 
 # ----------------- HTML ENDPOINTS --------------- # 
 
@@ -98,30 +37,52 @@ def home_page(request: Request):
     return templates.TemplateResponse(request, 
                                       name='home.html')
 
-@app.get('/user', name='home', include_in_schema=False)
-def user_home_page(request: Request):
-    # TODO : Implement home page for logged in user
-    pass
+# User home page
+@app.get('/users/{user_id}', include_in_schema=False)
+def user_home_page(request: Request, user_id: int, db: Annotated[Session, Depends(get_db)]):
+    result = db.execute(select(models.User).where(models.User.id == user_id))
+    user = result.scalars().first()  
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='User not found.',
+        )
+
+
+    result = db.execute(select(models.Transaction).where(models.Transaction.user_id == user_id))
+    trxs = result.scalars().all()
+
+    return templates.TemplateResponse(request,
+                                      name='user_home_page.html',
+                                      context={'user':user, 'transactions': trxs})
+
 
 # All transactions
 @app.get('/transactions', include_in_schema=False)
-def all_transactions(request: Request):
+def all_transactions_page(request: Request):
     return templates.TemplateResponse(request,
                                       name='transactions.html',
                                       context={'transactions': transactions})
 
+# User transactions page
+@app.get('/users/{user_id}/transactions', include_in_schema=False, name='user_transactions')
+def user_transactions_page(request: Request, user_id: int, db: Annotated[Session, Depends(get_db)]):
+    
+    result = db.execute(select(models.User).where(models.User.id == user_id))
+    user = result.scalars().first() 
 
-@app.get('/user_transactions/{user_id}', include_in_schema=False, name='user_transactions')
-def user_transactions_page(request: Request, user_id: int):
-    result = [tr for tr in transactions if tr['user_id'] == user_id]
-    if not result:
-        return templates.TemplateResponse(request,
-                                          name='error.html', 
-                                          context={'status_code': status.HTTP_404_NOT_FOUND, 
-                                                   'message': 'Resource not found'})
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='User not found.',
+        ) 
+    result = db.execute(select(models.Transaction).where(models.Transaction.user_id == user_id))
+    transactions = result.scalars().all()     
+    
     return templates.TemplateResponse(request,
                                       name='transactions.html',
-                                      context={'transactions': result, 'user_id': user_id})
+                                      context={'transactions': transactions})
 
 
 
@@ -129,32 +90,104 @@ def user_transactions_page(request: Request, user_id: int):
 
 
 # Get transaction by id
-@app.get('/api/transactions/{id}', response_model=ResponseTransaction)
+@app.get('/api/transactions/{id}', response_model=ResponseTrx)
 def get_transaction_api(id: int):
     # TODO   
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, 
                         detail='Transaction not found.')
 
 # Get all transaction of specific user 
-@app.get('/api/user_transactions/{user_id}', response_model=list[ResponseTransaction])
-def get_user_transactions_api(user_id: int) -> list[dict]:
+@app.get('/api/user_transactions/{user_id}', response_model=list[ResponseTrx])
+def get_user_transactions_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
+    result = db.execute(select(models.User).where(models.User.id == user_id))
+    user = result.scalars().first() 
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='User not found.',
+        ) 
+    result = db.execute(select(models.Transaction).where(models.Transaction.user_id == user_id))
+    transactions = result.scalars().all()     
+    
+    return transactions
+
+# Get all transactions
+@app.get('/api/transactions', response_model=list[ResponseTrx])
+def get_all_transactions_api(request: Request):
     pass
 
 
-# Get all transactions
-@app.get('/api/transactions', response_model=list[ResponseTransaction])
-def get_all_transactions_api(request: Request):
-    return transactions
+@app.post('/create_user/')
+def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
+    result = db.execute(select(models.User).where(models.User.username == user.username))
+    username = result.scalars().first()  
 
+    if username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='Username already exists',
+        )
+    
+    result = db.execute(select(models.User).where(models.User.email == user.email))
+    email = result.scalars().first()  
 
+    if email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail='email already exists',
+        )
 
+    new_user = models.User(
+        username=user.username,
+        email=user.email,
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+
+    return new_user
+
+@app.get('/all_users/')
+def get_all_users_api(db: Annotated[Session, Depends(get_db)]):
+    return db.execute(select(models.User)).scalars().all()
+
+@app.post('/api/create_trx/')
+def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db)]):
+    result = db.execute(select(models.User).where(models.User.id == trx.user_id))
+    user = result.scalars().first()  
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail='User not found',
+        )
+    
+
+    new_trx = models.Transaction(
+        type=trx.type,
+        entity_name=trx.entity_name,
+        units=trx.units,
+        rate=trx.rate,
+        user_id = user.id
+    )
+    db.add(new_trx)
+    db.commit()
+    db.refresh(new_trx)
+
+    return new_trx
 
 # --------- EXCEPTION HANDLERS --------------------------# 
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
+    if request.url.path.startswith('/api/'):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={'detail': exc.detail or 'Not found'},
+        )
     return templates.TemplateResponse(request,
                                       name='error.html',
                                       status_code=status.HTTP_404_NOT_FOUND,
                                       context={'status_code': status.HTTP_404_NOT_FOUND,
-                                               'message': 'Page not found'})
+                                               'message': exc.detail or 'Page not found'})

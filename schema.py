@@ -1,22 +1,32 @@
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, EmailStr
 from typing import Literal
 from enum import Enum
+from datetime import datetime
 
 class TypeEnum(str, Enum):
     BUY = 'buy'
     SELL = 'sell'
 
-
-class BaseTransaction(BaseModel):
+class BaseTrx(BaseModel):
+    user_id: int
     type: TypeEnum
-    date : str
     entity_name: str
     units: int
     rate: float
 
-class CreateTransaction(BaseTransaction):
-    id: int
-    user_id: int
+class CreateTrx(BaseTrx):
+    pass
 
-class ResponseTransaction(BaseTransaction):
+class ResponseTrx(BaseTrx):
+    pass
+
+class BaseUser(BaseModel):
+    username: str
+    email: EmailStr
+
+class CreateUser(BaseUser):
+    image_path: str
+    # password: str
+
+class ResponseUser(BaseUser):
     pass

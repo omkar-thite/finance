@@ -21,3 +21,4 @@ wheels/
 
 .python-version
 
+*.db

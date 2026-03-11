@@ -1,0 +1,137 @@
+{% extends "layout.html" %}
+
+{% set title = (user.username ~ "'s Dashboard") if user else 'Dashboard' %}
+
+{% block navbar_actions %}
+    <a class="btn-auth" href="#">Profile</a>
+    <a class="btn-auth" href="#">Settings</a>
+    <span class="navbar-divider"></span>
+{% endblock %}
+
+{% block content %}
+
+{# Compute summary totals #}
+{% set ns = namespace(buy_total=0.0, sell_total=0.0) %}
+{% if transactions %}
+    {% for tr in transactions %}
+        {% if tr.type.value == 'buy' %}
+            {% set ns.buy_total = ns.buy_total + tr.units * tr.rate %}
+        {% else %}
+            {% set ns.sell_total = ns.sell_total + tr.units * tr.rate %}
+        {% endif %}
+    {% endfor %}
+{% endif %}
+{% set net_position = ns.buy_total - ns.sell_total %}
+
+<div class="user-home-container">
+
+    <!-- Profile Card -->
+    <div class="profile-card">
+        <div class="profile-avatar-wrap">
+            {% if user and user.image_path %}
+                <img src="{{ url_for('media', path=user.image_file) }}" alt="Profile Picture" class="avatar-img">
+            {% else %}
+                <div class="avatar-placeholder">
+                    <span>{{ user.username[0] | upper if user else '?' }}</span>
+                </div>
+            {% endif %}
+        </div>
+        <div class="profile-details">
+            <p class="greeting-text" id="greeting-msg">Welcome,</p>
+            <h2 class="profile-username">{{ user.username if user else 'User' }}</h2>
+            <p class="profile-email">{{ user.email if user else '' }}</p>
+        </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Transactions</div>
+            <div class="stat-value">{{ transactions | length if transactions else 0 }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Invested</div>
+            <div class="stat-value text-green">&#8377;{{ "%.2f" | format(ns.buy_total) }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Returns</div>
+            <div class="stat-value text-red">&#8377;{{ "%.2f" | format(ns.sell_total) }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Net Position</div>
+            <div class="stat-value {% if net_position >= 0 %}text-green{% else %}text-red{% endif %}">
+                &#8377;{{ "%.2f" | format(net_position) }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Links -->
+    <div class="section-header">Quick Links</div>
+    <div class="quick-links">
+        <a href="{{ url_for('user_transactions', user_id=user.id)  }}" class="link-card">
+            <div class="link-icon">&#128200;</div>
+            <div class="link-label">Transactions</div>
+        </a>
+        <a href="/assets" class="link-card">
+            <div class="link-icon">&#128181;</div>
+            <div class="link-label">Assets</div>
+        </a>
+        <a href="#" class="link-card">
+            <div class="link-icon">&#128100;</div>
+            <div class="link-label">Profile</div>
+        </a>
+        <a href="#" class="link-card">
+            <div class="link-icon">&#9881;</div>
+            <div class="link-label">Settings</div>
+        </a>
+        <a href="#" class="link-card">
+            <div class="link-icon">&#128276;</div>
+            <div class="link-label">Notifications</div>
+        </a>
+    </div>
+
+    <!-- Recent Transactions -->
+    <div class="section-header">Recent Transactions</div>
+    {% if transactions %}
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Name</th>
+                    <th>Units</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tr in transactions[-5:] %}
+                <tr>
+                    <td>
+                        <span class="badge {% if tr.type.value == 'buy' %}badge-buy{% else %}badge-sell{% endif %}">
+                            {{ tr.type.value | capitalize }}
+                        </span>
+                    </td>
+                    <td>{{ tr.date }}</td>
+                    <td>{{ tr.entity_name }}</td>
+                    <td>{{ tr.units }}</td>
+                    <td>{{ "%.2f" | format(tr.rate) }}</td>
+                    <td>{{ "%.2f" | format(tr.units * tr.rate) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="view-all-link">
+        <a href="{{ url_for('user_transactions', user_id=user.id) }}">View all transactions &rarr;</a>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <p>No transactions yet. <a href="#">Add your first transaction.</a></p>
+    </div>
+    {% endif %}
+
+</div>
+
+{% endblock content %}
