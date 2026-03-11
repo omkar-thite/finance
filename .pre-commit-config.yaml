@@ -1,0 +1,23 @@
+repos:
+
+# 1. Black: Automatically formats Python code
+-   repo: https://github.com/psf/black
+    rev: 26.3.0  # Note: Always pin a specific version for security and consistency
+    hooks:
+    -   id: black
+
+# 2. Flake8: Lints code for PEP 8 compliance and syntax errors
+-   repo: https://github.com/PyCQA/flake8
+    rev: 7.3.0
+    hooks:
+    -   id: flake8
+
+# 3. Pytest: Runs test suite (using the local system environment)
+-   repo: local
+    hooks:
+    -   id: pytest-check
+        name: Run pytest
+        entry: pytest
+        language: system
+        pass_filenames: false
+        always_run: true

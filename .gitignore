@@ -22,3 +22,5 @@ wheels/
 .python-version
 
 *.db
+*cache*
+

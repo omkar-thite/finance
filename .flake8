@@ -1,0 +1,11 @@
+[flake8]
+max-line-length = 88
+
+# E203: whitespace before ':' — conflicts with Black's slice formatting
+# W503: line break before binary operator — conflicts with Black
+# E241: multiple spaces after ',' — conflicts with Black alignment style
+
+extend-ignore =
+    E203,
+    W503,
+    E241
