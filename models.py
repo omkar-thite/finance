@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Enum, Numeric
+from sqlalchemy import DateTime, Integer, String, Enum, Numeric, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base
 from schema import TypeEnum
@@ -17,7 +17,9 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
 
     image_file: Mapped[str | None] = mapped_column(String(120))
-    transactions: Mapped[list[Transaction]] = relationship(back_populates="user")
+    transactions: Mapped[list[Transaction]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def image_path(self) -> str | None:
@@ -34,12 +36,13 @@ class Transaction(Base):
     type: Mapped[TypeEnum] = mapped_column(Enum(TypeEnum), nullable=False)
     instrument: Mapped[str] = mapped_column(String(50), nullable=False)
     units: Mapped[int] = mapped_column(Integer, nullable=False)
-    rate: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
-    charges: Mapped[Decimal] = mapped_column(Numeric, nullable=True, default=0)
+    rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    charges: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=True, default=0)
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
     )
+
     date: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

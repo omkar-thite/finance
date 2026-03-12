@@ -57,14 +57,6 @@ def override_get_db_dependency(db_session):
     app.dependency_overrides.clear()
 
 
-@pytest.fixture(autouse=True)
-def reset_db():
-    """Fresh tables for every test."""
-    Base.metadata.create_all(bind=engine)
-    yield
-    Base.metadata.drop_all(bind=engine)
-
-
 @pytest.fixture
 def client():
     return TestClient(app)

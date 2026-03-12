@@ -120,7 +120,9 @@ def get_users_api(db: Annotated[Session, Depends(get_db)]):
 
 
 # Post: Create a user
-@app.post("/api/users/", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/api/users/", status_code=status.HTTP_201_CREATED, response_model=ResponseUser
+)
 def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
     result = db.execute(
         select(models.User).where(models.User.username == user.username)
@@ -195,7 +197,11 @@ def get_all_transactions_api(db: Annotated[Session, Depends(get_db)]):
 
 
 # Post: Create a transaction
-@app.post("/api/transactions/", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/api/transactions/",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ResponseTrx,
+)
 def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db)]):
     user = get_user(db, trx.user_id)
 
