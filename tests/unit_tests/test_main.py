@@ -73,7 +73,7 @@ def client():
 @pytest.fixture
 def created_user(client):
     response = client.post(
-        "/api/create_user/",
+        "/api/users/",
         json={"username": "alice", "email": "alice@example.com", "image_path": ""},
     )
     assert response.status_code == 201
@@ -84,11 +84,11 @@ def created_user(client):
 @pytest.fixture
 def created_transaction(client, created_user):
     resp = client.post(
-        "/api/create_transaction/",
+        "/api/transactions/",
         json={
             "user_id": created_user["id"],
             "type": "buy",
-            "entity_name": "AAPL",
+            "instrument": "AAPL",
             "units": 10,
             "rate": 150.0,
         },
@@ -103,7 +103,7 @@ def created_transaction(client, created_user):
 class TestCreateUser:
     def test_success(self, client):
         resp = client.post(
-            "/api/create_user/",
+            "/api/users/",
             json={"username": "bob", "email": "bob@example.com", "image_path": ""},
         )
         assert resp.status_code == 201
@@ -113,7 +113,7 @@ class TestCreateUser:
 
     def test_duplicate_username(self, client, created_user):
         resp = client.post(
-            "/api/create_user/",
+            "/api/users/",
             json={"username": "alice", "email": "other@example.com", "image_path": ""},
         )
         assert resp.status_code == 400
@@ -121,7 +121,7 @@ class TestCreateUser:
 
     def test_duplicate_email(self, client, created_user):
         resp = client.post(
-            "/api/create_user/",
+            "/api/users/",
             json={"username": "other", "email": "alice@example.com", "image_path": ""},
         )
         assert resp.status_code == 400
@@ -130,10 +130,10 @@ class TestCreateUser:
 
 class TestGetAllUsers:
     def test_empty(self, client):
-        assert client.get("/api/all_users/").json() == []
+        assert client.get("/api/users/").json() == []
 
     def test_lists_created_user(self, client, created_user):
-        resp = client.get("/api/all_users/")
+        resp = client.get("/api/users/")
         assert any(u["id"] == created_user["id"] for u in resp.json())
 
 
@@ -143,11 +143,11 @@ class TestGetAllUsers:
 class TestCreateTransaction:
     def test_buy(self, client, created_user):
         resp = client.post(
-            "/api/create_transaction/",
+            "/api/transactions/",
             json={
                 "user_id": created_user["id"],
                 "type": "buy",
-                "entity_name": "TSLA",
+                "instrument": "TSLA",
                 "units": 5,
                 "rate": 200.0,
             },
@@ -157,11 +157,11 @@ class TestCreateTransaction:
 
     def test_sell(self, client, created_user):
         resp = client.post(
-            "/api/create_transaction/",
+            "/api/transactions/",
             json={
                 "user_id": created_user["id"],
                 "type": "sell",
-                "entity_name": "GOOG",
+                "instrument": "GOOG",
                 "units": 2,
                 "rate": 100.0,
             },
@@ -171,11 +171,11 @@ class TestCreateTransaction:
 
     def test_unknown_user(self, client):
         resp = client.post(
-            "/api/create_transaction/",
+            "/api/transactions/",
             json={
                 "user_id": 9999,
                 "type": "buy",
-                "entity_name": "AAPL",
+                "instrument": "AAPL",
                 "units": 1,
                 "rate": 1.0,
             },
@@ -207,17 +207,17 @@ class TestGetAllTransactions:
 
 class TestGetUserTransactions:
     def test_returns_transactions(self, client, created_user, created_transaction):
-        resp = client.get(f"/api/user_transactions/{created_user['id']}")
+        resp = client.get(f"/api/users/{created_user['id']}/transactions/")
         assert resp.status_code == 200
         assert resp.json()[0]["user_id"] == created_user["id"]
 
     def test_unknown_user(self, client):
-        response = client.get("/api/user_transactions/9999")
+        response = client.get("/api/users/9999/transactions/")
         assert response.status_code == 404
         assert "User not found" in response.json()["detail"]
 
     def test_empty_list_for_new_user(self, client, created_user):
-        resp = client.get(f"/api/user_transactions/{created_user['id']}")
+        resp = client.get(f"/api/users/{created_user['id']}/transactions/")
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -250,7 +250,7 @@ class TestUserTransactionsPageHTML:
     def test_renders_transactions(self, client, created_user, created_transaction):
         resp = client.get(f"/users/{created_user['id']}/transactions")
         assert resp.status_code == 200
-        assert created_transaction["entity_name"] in resp.text
+        assert created_transaction["instrument"] in resp.text
 
     def test_unknown_user_returns_404_html(self, client):
         resp = client.get("/users/9999/transactions")

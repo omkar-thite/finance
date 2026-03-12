@@ -21,13 +21,4 @@ function updateToggleIcon() {
     const btn = document.getElementById('theme-toggle');
     if (!btn) return;
     btn.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '\u2600' : '\u263D';
-}
-
-document.addEventListener('DOMContentLoaded', function () {
-    updateToggleIcon();
-    const btn = document.getElementById('theme-toggle');
-    if (btn) btn.addEventListener('click', toggleDarkMode);
-
-    const greetingEl = document.getElementById('greeting-msg');
-    if (greetingEl) greetingEl.textContent = getGreeting();
-});
+};

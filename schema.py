@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, ConfigDict
 from enum import Enum
+from decimal import Decimal
+from datetime import datetime
 
 
 class TypeEnum(str, Enum):
@@ -10,9 +12,10 @@ class TypeEnum(str, Enum):
 class BaseTrx(BaseModel):
     user_id: int
     type: TypeEnum
-    entity_name: str
+    instrument: str
     units: int
-    rate: float
+    rate: Decimal
+    charges: Decimal = Decimal("0")
 
 
 class CreateTrx(BaseTrx):
@@ -20,6 +23,9 @@ class CreateTrx(BaseTrx):
 
 
 class ResponseTrx(BaseTrx):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    date: datetime
     pass
 
 
@@ -34,4 +40,5 @@ class CreateUser(BaseUser):
 
 
 class ResponseUser(BaseUser):
-    pass
+    model_config = ConfigDict(from_attributes=True)
+    id: int
