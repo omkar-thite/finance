@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
 from enum import Enum
 from decimal import Decimal
-from datetime import datetime
+from datetime import date
 
 
 class TypeEnum(str, Enum):
@@ -10,7 +10,7 @@ class TypeEnum(str, Enum):
 
 
 class BaseTrx(BaseModel):
-    user_id: int
+    # Base contains the common fields, but we make them optional for the "Base"
     type: TypeEnum
     instrument: str
     units: int
@@ -19,30 +19,52 @@ class BaseTrx(BaseModel):
 
 
 class CreateTrx(BaseTrx):
-    pass
+    user_id: int
+    date_created: date | None = None
 
 
 class ResponseTrx(BaseTrx):
     model_config = ConfigDict(from_attributes=True)
     id: int
-    date: datetime
-    pass
+    user_id: int
+    date_created: date
 
 
-class BaseUser(BaseModel):
+class PatchTrx(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    user_id: int  # Remove this after auth implementation
+    type: TypeEnum | None = None
+    instrument: str | None = None
+    units: int | None = None
+    rate: Decimal | None = None
+    charges: Decimal | None = None
+    date_created: date | None = None
+
+
+class UserBase(BaseModel):
     username: str
 
 
-class ContactUser(BaseUser):
+class UserContact(UserBase):
     email: EmailStr
     phone_no: str | None = None
 
 
-class CreateUser(ContactUser):
+class CreateUser(UserContact):
     image_file_name: str | None = None
-    password: str | None = None
+    pass
 
 
-class ResponseUser(BaseUser):
-    model_config = ConfigDict(from_attributes=True)
+class ResponseUser(UserBase):
     id: int
+    pass
+
+
+class PatchUser(UserBase):
+    user_id: int  # Remove this after auth implementation
+    username: str
+    email: EmailStr
+    phone_no: str | None = None
+    image_file_name: str | None = None

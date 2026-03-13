@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 
-from schema import CreateTrx, ResponseTrx, CreateUser, ResponseUser
+from schema import CreateTrx, ResponseTrx, CreateUser, ResponseUser, PatchUser, PatchTrx
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -173,6 +173,32 @@ def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
     return new_user
 
 
+# Patch: Update a user
+@app.patch("/api/users/", status_code=status.HTTP_200_OK, response_model=ResponseUser)
+def patch_user(user_update_data: PatchUser, db: Annotated[Session, Depends(get_db)]):
+    # TODO: Extract user id from current session
+    # user_id = ...
+
+    user = db.get(models.User, user_update_data.user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    update_data = user_update_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(user, field, value)
+
+    # Commit post to database
+    db.commit()
+    db.refresh(user)
+
+    return user
+
+
 # Get transaction by id
 @app.get("/api/transactions/{id}", response_model=ResponseTrx)
 def get_transaction_api(id: int, db: Annotated[Session, Depends(get_db)]):
@@ -241,6 +267,45 @@ def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db
     db.refresh(new_trx)
 
     return new_trx
+
+
+# Patch: Update a transaction
+@app.patch(
+    "/api/transactions/", status_code=status.HTTP_200_OK, response_model=ResponseTrx
+)
+def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]):
+    # TODO: Get user id from session
+    # user_id =
+
+    # TODO: Authnticate user id with session user id
+    # ...
+
+    user = db.get(models.User, trx_update_data.user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    trx = db.get(models.Transaction, trx_update_data.id)
+
+    if not trx:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Transaction not found",
+        )
+
+    update_data = trx_update_data.model_dump(exclude_unset=True)
+
+    for field, value in update_data.items():
+        setattr(trx, field, value)
+
+    # Commit post to database
+    db.commit()
+    db.refresh(trx)
+
+    return trx
 
 
 # --------- EXCEPTION HANDLERS --------------------------#

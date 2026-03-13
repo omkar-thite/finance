@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, date
 
-from sqlalchemy import DateTime, Integer, String, Enum, Numeric, ForeignKey
+from sqlalchemy import DateTime, Date, Integer, String, Enum, Numeric, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -86,8 +86,11 @@ class Transaction(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
     )
-    date: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(UTC),
+    date_created: Mapped[date] = mapped_column(
+        Date(),
+        default=lambda: date.today(),
+    )
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
     user: Mapped[User] = relationship(back_populates="transactions")
