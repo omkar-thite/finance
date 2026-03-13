@@ -135,18 +135,36 @@ def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
             detail="Username already exists",
         )
 
-    result = db.execute(select(models.User).where(models.User.email == user.email))
-    email = result.scalars().first()
+    email_exists = (
+        db.execute(
+            select(models.UserContact).where(models.UserContact.email == user.email)
+        )
+        .scalars()
+        .first()
+    )
 
-    if email:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="email already exists",
+    phone_exists = None
+    if user.phone_no is not None:
+        phone_exists = (
+            db.execute(
+                select(models.UserContact).where(
+                    models.UserContact.phone_no == user.phone_no
+                )
+            )
+            .scalars()
+            .first()
         )
 
+    if email_exists or phone_exists:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="email/phone already exists",
+        )
+
+    new_contact = models.UserContact(email=user.email, phone_no=user.phone_no)
     new_user = models.User(
         username=user.username,
-        email=user.email,
+        contact=new_contact,
     )
     db.add(new_user)
     db.commit()

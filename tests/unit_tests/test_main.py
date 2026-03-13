@@ -117,7 +117,7 @@ class TestCreateUser:
             json={"username": "other", "email": "alice@example.com", "image_path": ""},
         )
         assert resp.status_code == 400
-        assert "email already exists" in resp.json()["detail"]
+        assert "email/phone already exists" in resp.json()["detail"]
 
 
 class TestGetAllUsers:
