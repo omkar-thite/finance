@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 import models
 from database import engine, get_db, Base
 
+from utils.error_messages import ErrorMessages
+
 # Create tables if not exists
 Base.metadata.create_all(bind=engine)
 
@@ -48,7 +50,7 @@ def user_home_page(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
 
     result = db.execute(
@@ -87,7 +89,7 @@ def user_transactions_page(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
     result = db.execute(
         select(models.Transaction).where(models.Transaction.user_id == user_id)
@@ -108,7 +110,7 @@ def get_user_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
     user = get_user(db, user_id)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="User not found."
+            status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.User.NOT_FOUND
         )
     return user
 
@@ -132,7 +134,7 @@ def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
     if username:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Username already exists",
+            detail=ErrorMessages.User.USERNAME_EXISTS,
         )
 
     email_exists = (
@@ -158,7 +160,7 @@ def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
     if email_exists or phone_exists:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="email/phone already exists",
+            detail=ErrorMessages.User.EMAIL_OR_PHONE_EXISTS,
         )
 
     new_contact = models.UserContact(email=user.email, phone_no=user.phone_no)
@@ -184,7 +186,7 @@ def patch_user(user_update_data: PatchUser, db: Annotated[Session, Depends(get_d
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
 
     update_data = user_update_data.model_dump(exclude_unset=True)
@@ -211,7 +213,7 @@ def delete_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
 
     db.delete(user)
@@ -227,7 +229,8 @@ def get_transaction_api(id: int, db: Annotated[Session, Depends(get_db)]):
 
     if not tx:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found."
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorMessages.Transaction.NOT_FOUND,
         )
     return tx
 
@@ -240,7 +243,7 @@ def get_user_transactions_api(user_id: int, db: Annotated[Session, Depends(get_d
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found.",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
 
     result = db.execute(
@@ -271,7 +274,7 @@ def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
 
     new_trx = models.Transaction(
@@ -304,7 +307,7 @@ def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
 
     trx = db.get(models.Transaction, trx_update_data.id)
@@ -312,7 +315,7 @@ def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]
     if not trx:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transaction not found",
+            detail=ErrorMessages.Transaction.NOT_FOUND,
         )
 
     update_data = trx_update_data.model_dump(exclude_unset=True)
@@ -339,19 +342,20 @@ def delete_trx(user_id: int, trx_id: int, db: Annotated[Session, Depends(get_db)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found",
+            detail=ErrorMessages.User.NOT_FOUND,
         )
 
     trx = db.get(models.Transaction, trx_id)
     if not trx:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorMessages.Transaction.NOT_FOUND,
         )
 
     if trx.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Transaction does not belong to user",
+            detail=ErrorMessages.Transaction.USER_NOT_OWNER,
         )
 
     db.delete(trx)
@@ -374,6 +378,6 @@ async def not_found_handler(request: Request, exc: HTTPException):
         status_code=status.HTTP_404_NOT_FOUND,
         context={
             "status_code": status.HTTP_404_NOT_FOUND,
-            "message": exc.detail or "Page not found",
+            "message": exc.detail or ErrorMessages.PAGE_NOT_FOUND,
         },
     )

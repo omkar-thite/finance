@@ -399,7 +399,7 @@ class TestDeleteTransaction:
 
         get_resp = client.get(f"/api/transactions/{created_transaction['id']}")
         assert get_resp.status_code == 404
-        assert get_resp.json() == {"detail": "Transaction not found."}
+        assert get_resp.json() == {"detail": "Transaction not found"}
 
     @pytest.mark.unit
     def test_delete_transaction_returns_404_when_user_does_not_exist(
