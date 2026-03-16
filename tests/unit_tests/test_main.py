@@ -1,4 +1,8 @@
-# test_main.py
+"""
+Guards: main.py
+Contract: unit coverage for API and HTML routes, including patch/delete flows.
+"""
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -7,6 +11,8 @@ from sqlalchemy.orm import sessionmaker
 from main import app
 from database import Base, get_db
 from sqlalchemy.pool import StaticPool
+
+pytestmark = pytest.mark.unit
 
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
@@ -83,6 +89,32 @@ def created_transaction(client, created_user):
             "instrument": "AAPL",
             "units": 10,
             "rate": 150.0,
+        },
+    )
+    assert resp.status_code == 201
+    return resp.json()
+
+
+@pytest.fixture
+def another_user(client):
+    response = client.post(
+        "/api/users/",
+        json={"username": "charlie", "email": "charlie@example.com", "image_path": ""},
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest.fixture
+def another_transaction(client, another_user):
+    resp = client.post(
+        "/api/transactions/",
+        json={
+            "user_id": another_user["id"],
+            "type": "buy",
+            "instrument": "MSFT",
+            "units": 3,
+            "rate": 250.0,
         },
     )
     assert resp.status_code == 201
@@ -212,6 +244,204 @@ class TestGetUserTransactions:
         resp = client.get(f"/api/users/{created_user['id']}/transactions/")
         assert resp.status_code == 200
         assert resp.json() == []
+
+
+class TestPatchUser:
+    @pytest.mark.unit
+    def test_patch_user_returns_200_when_payload_is_valid(self, client, created_user):
+        payload = {
+            "user_id": created_user["id"],
+            "username": "alice_updated",
+            "email": "alice.updated@example.com",
+            "phone_no": "1234567890",
+            "image_file_name": "avatar.png",
+        }
+
+        resp = client.patch("/api/users/", json=payload)
+
+        assert resp.status_code == 200
+        assert resp.json() == {"id": created_user["id"], "username": "alice_updated"}
+
+    @pytest.mark.unit
+    def test_patch_user_returns_404_when_user_does_not_exist(self, client):
+        payload = {
+            "user_id": 9999,
+            "username": "ghost",
+            "email": "ghost@example.com",
+        }
+
+        resp = client.patch("/api/users/", json=payload)
+
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "User not found"}
+
+    @pytest.mark.unit
+    def test_patch_user_returns_422_when_required_field_is_missing(
+        self, client, created_user
+    ):
+        payload = {
+            "user_id": created_user["id"],
+            "username": "alice_updated",
+        }
+
+        resp = client.patch("/api/users/", json=payload)
+
+        assert resp.status_code == 422
+
+
+class TestDeleteUser:
+    @pytest.mark.unit
+    def test_delete_user_returns_204_when_user_exists(self, client, created_user):
+        resp = client.delete(f"/api/users/?user_id={created_user['id']}")
+
+        assert resp.status_code == 204
+        assert resp.content == b""
+
+        users_resp = client.get("/api/users/")
+        assert users_resp.status_code == 200
+        assert all(u["id"] != created_user["id"] for u in users_resp.json())
+
+    @pytest.mark.unit
+    def test_delete_user_returns_404_when_user_does_not_exist(self, client):
+        resp = client.delete("/api/users/?user_id=9999")
+
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "User not found"}
+
+    @pytest.mark.unit
+    def test_delete_user_returns_422_when_user_id_query_param_is_missing(self, client):
+        resp = client.delete("/api/users/")
+
+        assert resp.status_code == 422
+
+
+class TestPatchTransaction:
+    @pytest.mark.unit
+    def test_patch_transaction_returns_200_when_payload_is_valid(
+        self, client, created_transaction
+    ):
+        payload = {
+            "id": created_transaction["id"],
+            "user_id": created_transaction["user_id"],
+            "instrument": "NVDA",
+            "units": 42,
+            "rate": 321.5,
+        }
+
+        resp = client.patch("/api/transactions/", json=payload)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["id"] == created_transaction["id"]
+        assert data["user_id"] == created_transaction["user_id"]
+        assert data["instrument"] == "NVDA"
+        assert data["units"] == 42
+        assert data["rate"] == "321.5000"
+
+    @pytest.mark.unit
+    def test_patch_transaction_returns_404_when_user_does_not_exist(
+        self, client, created_transaction
+    ):
+        payload = {
+            "id": created_transaction["id"],
+            "user_id": 9999,
+            "instrument": "NVDA",
+        }
+
+        resp = client.patch("/api/transactions/", json=payload)
+
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "User not found"}
+
+    @pytest.mark.unit
+    def test_patch_transaction_returns_404_when_transaction_does_not_exist(
+        self, client, created_user
+    ):
+        payload = {
+            "id": 9999,
+            "user_id": created_user["id"],
+            "instrument": "NVDA",
+        }
+
+        resp = client.patch("/api/transactions/", json=payload)
+
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "Transaction not found"}
+
+    @pytest.mark.unit
+    def test_patch_transaction_returns_422_when_payload_contains_extra_fields(
+        self, client, created_transaction
+    ):
+        payload = {
+            "id": created_transaction["id"],
+            "user_id": created_transaction["user_id"],
+            "instrument": "NVDA",
+            "unknown_field": "should_fail",
+        }
+
+        resp = client.patch("/api/transactions/", json=payload)
+
+        assert resp.status_code == 422
+
+
+class TestDeleteTransaction:
+    @pytest.mark.unit
+    def test_delete_transaction_returns_204_when_user_owns_transaction(
+        self, client, created_transaction
+    ):
+        resp = client.delete(
+            f"/api/transactions/?user_id={created_transaction['user_id']}"
+            f"&trx_id={created_transaction['id']}"
+        )
+
+        assert resp.status_code == 204
+        assert resp.content == b""
+
+        get_resp = client.get(f"/api/transactions/{created_transaction['id']}")
+        assert get_resp.status_code == 404
+        assert get_resp.json() == {"detail": "Transaction not found."}
+
+    @pytest.mark.unit
+    def test_delete_transaction_returns_404_when_user_does_not_exist(
+        self, client, created_transaction
+    ):
+        resp = client.delete(
+            f"/api/transactions/?user_id=9999&trx_id={created_transaction['id']}"
+        )
+
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "User not found"}
+
+    @pytest.mark.unit
+    def test_delete_transaction_returns_404_when_transaction_does_not_exist(
+        self, client, created_user
+    ):
+        resp = client.delete(
+            f"/api/transactions/?user_id={created_user['id']}&trx_id=9999"
+        )
+
+        assert resp.status_code == 404
+        assert resp.json() == {"detail": "Transaction not found"}
+
+    @pytest.mark.unit
+    def test_delete_transaction_returns_400_when_transaction_does_not_belong_to_user(
+        self, client, created_transaction, another_user
+    ):
+        resp = client.delete(
+            f"/api/transactions/?user_id={another_user['id']}"
+            f"&trx_id={created_transaction['id']}"
+        )
+
+        assert resp.status_code == 400
+        assert resp.json() == {"detail": "Transaction does not belong to user"}
+
+    @pytest.mark.unit
+    def test_delete_transaction_returns_422_when_query_parameters_are_missing(
+        self, client
+    ):
+        resp = client.delete("/api/transactions/")
+
+        assert resp.status_code == 422
 
 
 # -------------------- HTML ENDPOINT TESTS ------------------- #

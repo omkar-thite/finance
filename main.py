@@ -199,6 +199,25 @@ def patch_user(user_update_data: PatchUser, db: Annotated[Session, Depends(get_d
     return user
 
 
+# Delete: Delete a user
+@app.delete("/api/users/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
+
+    # TODO: Extract user id from current session
+    # user_id = ...
+
+    user = db.get(models.User, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    db.delete(user)
+    db.commit()
+
+
 # Get transaction by id
 @app.get("/api/transactions/{id}", response_model=ResponseTrx)
 def get_transaction_api(id: int, db: Annotated[Session, Depends(get_db)]):
@@ -306,6 +325,37 @@ def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]
     db.refresh(trx)
 
     return trx
+
+
+# Delete: Delete a transaction
+@app.delete("/api/transactions/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_trx(user_id: int, trx_id: int, db: Annotated[Session, Depends(get_db)]):
+
+    # TODO: Extract user id from current session
+    # user_id = ...
+
+    user = db.get(models.User, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    trx = db.get(models.Transaction, trx_id)
+    if not trx:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
+        )
+
+    if trx.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Transaction does not belong to user",
+        )
+
+    db.delete(trx)
+    db.commit()
 
 
 # --------- EXCEPTION HANDLERS --------------------------#

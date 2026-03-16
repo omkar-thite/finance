@@ -16,9 +16,6 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
     image_file_name: Mapped[str | None] = mapped_column(String(120))
-    transactions: Mapped[list[Transaction]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
     date_account_created: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
@@ -33,6 +30,9 @@ class User(Base):
     )
     bank_details: Mapped[UserBankDetails] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    transactions: Mapped[list[Transaction]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
     )
 
     @property
