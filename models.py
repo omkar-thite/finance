@@ -2,7 +2,16 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, date
 
-from sqlalchemy import DateTime, Date, Integer, String, Enum, Numeric, ForeignKey
+from sqlalchemy import (
+    DateTime,
+    Date,
+    Integer,
+    String,
+    Enum,
+    Numeric,
+    ForeignKey,
+    CheckConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -83,9 +92,6 @@ class Transaction(Base):
     units: Mapped[int] = mapped_column(Integer, nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
     charges: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=True, default=0)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), nullable=False, index=True
-    )
     date_created: Mapped[date] = mapped_column(
         Date(),
         default=lambda: date.today(),
@@ -93,4 +99,27 @@ class Transaction(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True
+    )
+    asset_id: Mapped[int | None] = mapped_column(
+        ForeignKey("assets.id"), nullable=True, index=True
+    )
     user: Mapped[User] = relationship(back_populates="transactions")
+    asset: Mapped[Asset] = relationship(back_populates="transactions")
+
+    __table_args__ = (CheckConstraint("units > 0", name="transactions_units_gt_0"),)
+
+
+class Asset(Base):
+    __tablename__ = "assets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    instrument: Mapped[str] = mapped_column(String(50), nullable=False)
+    total_units: Mapped[int] = mapped_column(Integer, nullable=False)
+    average_rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True
+    )
+
+    transactions: Mapped[list[Transaction]] = relationship(back_populates="asset")

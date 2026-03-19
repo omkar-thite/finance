@@ -190,8 +190,8 @@ class TestCreateTransaction:
                 "rate": 100.0,
             },
         )
-        assert resp.status_code == 201
-        assert resp.json()["type"] == "sell"
+        assert resp.status_code == 400
+        assert "Sell units exceed available holdings" in resp.json()["detail"]
 
     def test_unknown_user(self, client):
         resp = client.post(

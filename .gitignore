@@ -25,3 +25,6 @@ wheels/
 *cache*
 
 *pycache*
+
+*.md
+!README.md

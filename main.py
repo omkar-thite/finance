@@ -5,8 +5,20 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
+from schema import TypeEnum
+from decimal import Decimal
 
-from schema import CreateTrx, ResponseTrx, CreateUser, ResponseUser, PatchUser, PatchTrx
+from schema import (
+    CreateTrx,
+    ResponseTrx,
+    PatchTrx,
+    CreateUser,
+    ResponseUser,
+    PatchUser,
+    CreateAsset,
+    ResponseAsset,
+    PatchAsset,
+)
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,6 +41,80 @@ templates = Jinja2Templates(directory="templates")
 
 def get_user(db: Session, user_id: int) -> models.User | None:
     return db.get(models.User, user_id)
+
+
+def _recalculate_asset_from_transactions(
+    db: Session, user_id: int, instrument: str
+) -> models.Asset | None:
+    transactions = (
+        db.execute(
+            select(models.Transaction)
+            .where(
+                models.Transaction.user_id == user_id,
+                models.Transaction.instrument == instrument,
+            )
+            .order_by(models.Transaction.id)
+        )
+        .scalars()
+        .all()
+    )
+
+    asset = (
+        db.execute(
+            select(models.Asset).where(
+                models.Asset.user_id == user_id,
+                models.Asset.instrument == instrument,
+            )
+        )
+        .scalars()
+        .first()
+    )
+
+    total_units = 0
+    average_rate = Decimal("0")
+
+    for trx in transactions:
+        if trx.type == TypeEnum.BUY:
+            old_cost = average_rate * total_units
+            new_cost = Decimal(trx.rate) * trx.units
+            total_units += trx.units
+            average_rate = (old_cost + new_cost) / total_units
+            continue
+
+        if trx.units > total_units:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Sell units exceed available holdings",
+            )
+        total_units -= trx.units
+        if total_units == 0:
+            average_rate = Decimal("0")
+
+    if total_units == 0:
+        if asset is not None:
+            for trx in transactions:
+                trx.asset_id = None
+            db.delete(asset)
+            db.flush()
+        return None
+
+    if asset is None:
+        asset = models.Asset(
+            instrument=instrument,
+            total_units=total_units,
+            average_rate=average_rate,
+            user_id=user_id,
+        )
+        db.add(asset)
+        db.flush()
+    else:
+        asset.total_units = total_units
+        asset.average_rate = average_rate
+
+    for trx in transactions:
+        trx.asset_id = asset.id
+
+    return asset
 
 
 # ----------------- HTML ENDPOINTS --------------- #
@@ -285,6 +371,11 @@ def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db
         user_id=user.id,
     )
     db.add(new_trx)
+    db.flush()
+
+    asset = _recalculate_asset_from_transactions(db, user.id, trx.instrument)
+    new_trx.asset_id = asset.id if asset else None
+
     db.commit()
     db.refresh(new_trx)
 
@@ -318,10 +409,31 @@ def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]
             detail=ErrorMessages.Transaction.NOT_FOUND,
         )
 
-    update_data = trx_update_data.model_dump(exclude_unset=True)
+    if trx.user_id != trx_update_data.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ErrorMessages.Transaction.USER_NOT_OWNER,
+        )
+
+    old_instrument = trx.instrument
+
+    update_data = trx_update_data.model_dump(
+        exclude_unset=True,
+        exclude={"id", "user_id"},
+    )
 
     for field, value in update_data.items():
         setattr(trx, field, value)
+
+    db.flush()
+
+    if old_instrument != trx.instrument:
+        _recalculate_asset_from_transactions(db, trx.user_id, old_instrument)
+
+    current_asset = _recalculate_asset_from_transactions(
+        db, trx.user_id, trx.instrument
+    )
+    trx.asset_id = current_asset.id if current_asset else None
 
     # Commit post to database
     db.commit()
@@ -358,8 +470,118 @@ def delete_trx(user_id: int, trx_id: int, db: Annotated[Session, Depends(get_db)
             detail=ErrorMessages.Transaction.USER_NOT_OWNER,
         )
 
+    instrument = trx.instrument
+
     db.delete(trx)
+    db.flush()
+
+    _recalculate_asset_from_transactions(db, user_id, instrument)
+
     db.commit()
+
+
+@app.get("/api/users/{user_id}/assets", response_model=list[ResponseAsset])
+def get_user_assets_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
+
+    # TODO: Get user_id from current session after implementing
+    # authenticte with passed user_id
+
+    user = db.get(models.User, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorMessages.User.NOT_FOUND,
+        )
+
+    result = db.execute(select(models.Asset).where(models.Asset.user_id == user_id))
+    assets = result.scalars().all()
+
+    return assets
+
+
+@app.post("/api/users/{user_id}/assets", response_model=ResponseAsset)
+def create_user_assets_api(
+    user_id: int, create_asset: CreateAsset, db: Annotated[Session, Depends(get_db)]
+):
+
+    # TODO: Get user_id from current session after implementing authenticte with passed user_id
+
+    user = db.get(models.User, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorMessages.User.NOT_FOUND,
+        )
+
+    new_asset = models.Asset(
+        instrument=create_asset.instrument,
+        total_units=create_asset.total_units,
+        average_rate=create_asset.average_rate,
+        user_id=user.id,
+    )
+    db.add(new_asset)
+    db.commit()
+    db.refresh(new_asset)
+
+    return new_asset
+
+
+@app.patch("/api/users/{user_id}/assets/{asset_id}", response_model=ResponseAsset)
+def patch_user_assets_api(
+    user_id: int,
+    asset_id: int,
+    asset_update_data: PatchAsset,
+    db: Annotated[Session, Depends(get_db)],
+):
+
+    # TODO: Get user_id from current session after implementing authenticte with passed user_id
+
+    user = db.get(models.User, user_id)
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorMessages.User.NOT_FOUND,
+        )
+
+    asset = db.get(models.Asset, asset_id)
+
+    if not asset or asset.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found",
+        )
+
+    if asset_update_data.id != asset_id or asset_update_data.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Path and payload user/asset ids must match",
+        )
+
+    update_data = asset_update_data.model_dump(exclude_unset=True)
+    if any(
+        field in update_data for field in ("instrument", "total_units", "average_rate")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Asset holdings are derived from transactions. Patch transactions instead.",
+        )
+
+    refreshed_asset = _recalculate_asset_from_transactions(
+        db, user_id, asset.instrument
+    )
+    if refreshed_asset is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Asset not found",
+        )
+
+    db.commit()
+    db.refresh(refreshed_asset)
+
+    return refreshed_asset
 
 
 # --------- EXCEPTION HANDLERS --------------------------#
