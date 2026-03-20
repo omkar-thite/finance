@@ -7,6 +7,7 @@ from sqlalchemy import (
     Date,
     Integer,
     String,
+    TEXT,
     Enum,
     Numeric,
     ForeignKey,
@@ -15,7 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
-from schema import TypeEnum
+from utils.enums import TrxTypeEnum, InstrumentType
 from decimal import Decimal
 
 
@@ -41,6 +42,9 @@ class User(Base):
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
     transactions: Mapped[list[Transaction]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    holdings: Mapped[list[Holdings]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -87,7 +91,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    type: Mapped[TypeEnum] = mapped_column(Enum(TypeEnum), nullable=False)
+    type: Mapped[TrxTypeEnum] = mapped_column(Enum(TrxTypeEnum), nullable=False)
     instrument: Mapped[str] = mapped_column(String(50), nullable=False)
     units: Mapped[int] = mapped_column(Integer, nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
@@ -123,3 +127,28 @@ class Asset(Base):
     )
 
     transactions: Mapped[list[Transaction]] = relationship(back_populates="asset")
+
+
+class Instruments(Base):
+    __tablename__ = "instruments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    type: Mapped[InstrumentType] = mapped_column(Enum(InstrumentType), nullable=False)
+    symbol: Mapped[str] = mapped_column(String(20), nullable=False)
+    name: Mapped[str] = mapped_column(TEXT, nullable=False)
+
+
+class Holdings(Base):
+    __tablename__ = "holdings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True
+    )
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id"), nullable=False, index=True
+    )
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    average_rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+
+    user: Mapped[User] = relationship(back_populates="holdings")

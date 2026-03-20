@@ -1,17 +1,12 @@
 from pydantic import BaseModel, EmailStr, ConfigDict, Field
-from enum import Enum
 from decimal import Decimal
 from datetime import date
-
-
-class TypeEnum(str, Enum):
-    BUY = "buy"
-    SELL = "sell"
+from utils.enums import TrxTypeEnum, InstrumentType
 
 
 class BaseTrx(BaseModel):
     # Base contains the common fields, but we make them optional for the "Base"
-    type: TypeEnum
+    type: TrxTypeEnum
     instrument: str
     units: int = Field(ge=0)
     rate: Decimal
@@ -36,7 +31,7 @@ class PatchTrx(BaseModel):
 
     id: int
     user_id: int  # Remove this after auth implementation
-    type: TypeEnum | None = None
+    type: TrxTypeEnum | None = None
     instrument: str | None = None
     units: int | None = None
     rate: Decimal | None = None
@@ -96,3 +91,49 @@ class PatchAsset(BaseModel):
     instrument: str | None = None
     total_units: int | None = None
     average_rate: Decimal | None = None
+
+
+class BaseHolding(BaseModel):
+    instrument_id: int
+    quantity: int
+    average_rate: Decimal
+
+
+class CreateHodling(BaseHolding):
+    pass
+
+
+class ResponseHolding(BaseHolding):
+    pass
+
+
+class PatchHolding:
+    model_config = ConfigDict(extra="forbid")
+
+    instrument_id: str | None = None
+    quantity: int | None = None
+    average_rate: Decimal | None = None
+
+
+class BaseInstrument(BaseModel):
+    type: InstrumentType
+    symbol: str = Field(max_length=20)
+    name: str
+
+
+class CreateInstrument(BaseInstrument):
+    pass
+
+
+class ResponseInstrument(BaseInstrument):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+
+
+class PatchInstrument(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    type: InstrumentType | None = None
+    symbol: str | None = None
+    name: str | None = None

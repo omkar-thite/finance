@@ -5,7 +5,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
-from schema import TypeEnum
+from utils.enums import TrxTypeEnum
 from decimal import Decimal
 
 from schema import (
@@ -46,6 +46,7 @@ def get_user(db: Session, user_id: int) -> models.User | None:
 def _recalculate_asset_from_transactions(
     db: Session, user_id: int, instrument: str
 ) -> models.Asset | None:
+    # Get user's transactions with current instrument
     transactions = (
         db.execute(
             select(models.Transaction)
@@ -74,13 +75,13 @@ def _recalculate_asset_from_transactions(
     average_rate = Decimal("0")
 
     for trx in transactions:
-        if trx.type == TypeEnum.BUY:
+        if trx.type == TrxTypeEnum.BUY:
             old_cost = average_rate * total_units
             new_cost = Decimal(trx.rate) * trx.units
             total_units += trx.units
             average_rate = (old_cost + new_cost) / total_units
             continue
-
+        # SELL
         if trx.units > total_units:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -90,6 +91,7 @@ def _recalculate_asset_from_transactions(
         if total_units == 0:
             average_rate = Decimal("0")
 
+    # Delet asset if emptied from holdings
     if total_units == 0:
         if asset is not None:
             for trx in transactions:
