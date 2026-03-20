@@ -67,17 +67,24 @@ layer:
       app.dependency_overrides.clear()
 ```
 
-
 **For service/CRUD function tests:**
 - Pass an `AsyncMock` directly as the `db` argument.
-- Configure return values on async methods explicitly:
+- NEVER write `session.execute.return_value = MagicMock(scalars=MagicMock(...))` 
+  inline. This chain is brittle and banned.
+- Always configure execute return values using the helpers in 
+  `tests/helpers/db_mocks.py`:
+    - `mock_scalar_result(obj)`      → execute().scalars().first()
+    - `mock_scalar_one_or_none(obj)` → execute().scalar_one_or_none()
+    - `mock_scalars_all([obj, ...])` → execute().scalars().all()
+- Example:
 ```python
-  mock_session.execute.return_value = MagicMock(scalars=MagicMock(
-      return_value=MagicMock(first=MagicMock(return_value=fake_object))
-  ))
+  from tests.helpers.db_mocks import mock_scalar_result
+
+  mock_session.execute.return_value = mock_scalar_result(fake_transaction)
 ```
-- Never use plain `MagicMock` for an object whose methods will be awaited —
-  it will silently return a coroutine that is never resolved.
+- If a new SQLAlchemy access pattern is needed, add a helper to db_mocks.py 
+  first, then use it. Never inline the chain.
+
 
 ### 4. API Endpoint Tests
 For every FastAPI route, test all expected behaviors:
@@ -119,7 +126,15 @@ Contract: creates, reads, updates, deletes transactions.
 
 ## Additional Cursor Instructions:
 - When I ask to "generate tests", always follow the patterns in this file for unit tests.
-- Use @database.py and @schema.py as context for mocking.
-- Use @main.py as context for mocking.
-- Use @models.py as context for mocking.
-- Use @schema.py as context for mocking.
+- Before writing any mock, locate and read the relevant models.py and schemas.py for the module under test. 
+- Derive mock field values from actual model columns and schema validators — never invent fields.
+
+
+## Refactoring Mode (use when code logic is unchanged, only structure changes)
+
+- Do NOT infer new expected behavior from the refactored code.
+- If an existing test breaks, REPORT the divergence — do not auto-fix the assertion.
+- Preserve all existing test names, marks, and assertions unless behavior was
+  intentionally changed (document this explicitly in a comment).
+- Your job is to confirm the contract is intact, not to redesign it.
+- Assume characterization tests already exist before a refactor begins. Do not write new tests to cover gaps during refactoring mode unless explicitly instructed.
