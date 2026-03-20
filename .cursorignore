@@ -1,0 +1,65 @@
+# --- Standard Git Ignore  ---
+node_modules/
+.git/
+dist/
+build/
+*.env*
+*.log
+
+# --- Cursor Specific / AI Optimization ---
+# Exclude large data files that will confuse the AI
+*.csv
+*.jsonl
+*.sql
+*.sqlite
+*.db
+
+# Exclude media (The AI can't "read" these for code context)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.mp4
+*.pdf
+
+# Exclude specific IDE/Tooling metadata
+.vscode/
+.idea/
+.serverless/
+.terraform/
+
+# Exclude WSL specific artifacts (if any)
+.wsl/
+
+*.db
+*.md 
+!README.md
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+*venv*
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
+
+.env
+*env*
+
+.python-version
+
+
+*cache*
+
+*pycache*
