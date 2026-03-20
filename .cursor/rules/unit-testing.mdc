@@ -130,11 +130,16 @@ Contract: creates, reads, updates, deletes transactions.
 - Derive mock field values from actual model columns and schema validators — never invent fields.
 
 
-## Refactoring Mode (use when code logic is unchanged, only structure changes)
+## Refactoring Mode (invoke explicitly in chat when restructuring code without changing behavior)
 
 - Do NOT infer new expected behavior from the refactored code.
-- If an existing test breaks, REPORT the divergence — do not auto-fix the assertion.
-- Preserve all existing test names, marks, and assertions unless behavior was
-  intentionally changed (document this explicitly in a comment).
-- Your job is to confirm the contract is intact, not to redesign it.
-- Assume characterization tests already exist before a refactor begins. Do not write new tests to cover gaps during refactoring mode unless explicitly instructed.
+- NEVER add new test cases unless explicitly asked.
+- NEVER change an existing assertion. If one breaks, REPORT the divergence and STOP.
+- If an assertion change is required, ask the human to confirm the behavior 
+  change is intentional before touching it.
+- Assume characterization tests already exist. Do not write tests to cover 
+  gaps unless explicitly instructed.
+- You may ONLY change:
+  - async mechanics (def → async def, adding await, MagicMock → AsyncMock)
+  - imports that broke due to renamed/moved modules
+  - mocks for newly introduced dependencies
