@@ -4,6 +4,7 @@ Contract: unit coverage for API and HTML routes, including patch/delete flows.
 """
 
 import pytest
+from datetime import date
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -161,6 +162,26 @@ class TestGetAllUsers:
         assert any(u["id"] == created_user["id"] for u in resp.json())
 
 
+class TestGetUserById:
+    @pytest.mark.unit
+    def test_get_user_by_id_returns_200_when_user_exists(self, client, created_user):
+        response = client.get(f"/api/users/{created_user['id']}")
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "id": created_user["id"],
+            "username": created_user["username"],
+        }
+
+    @pytest.mark.unit
+    def test_get_user_by_id_returns_422_when_path_user_id_is_not_an_integer(
+        self, client
+    ):
+        response = client.get("/api/users/not-an-int")
+
+        assert response.status_code == 422
+
+
 # ── Transactions ───────────────────────────────────────────────────────────────
 
 
@@ -206,6 +227,47 @@ class TestCreateTransaction:
         )
         assert resp.status_code == 404
         assert "User not found" in resp.json()["detail"]
+
+    @pytest.mark.unit
+    def test_create_transaction_returns_422_when_units_is_zero(
+        self, client, created_user
+    ):
+        response = client.post(
+            "/api/transactions/",
+            json={
+                "user_id": created_user["id"],
+                "type": "buy",
+                "instrument": "AAPL",
+                "units": 0,
+                "rate": 10.0,
+            },
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.unit
+    def test_create_transaction_persists_charges_and_ignores_date_created(
+        self, client, created_user
+    ):
+        supplied_date = "2000-01-01"
+        response = client.post(
+            "/api/transactions/",
+            json={
+                "user_id": created_user["id"],
+                "type": "buy",
+                "instrument": "META",
+                "units": 2,
+                "rate": 123.45,
+                "charges": "12.3400",
+                "date_created": supplied_date,
+            },
+        )
+
+        assert response.status_code == 201
+        body = response.json()
+        assert body["charges"] == "12.3400"
+        assert body["date_created"] != supplied_date
+        assert body["date_created"] == str(date.today())
 
 
 class TestGetTransaction:
@@ -382,6 +444,22 @@ class TestPatchTransaction:
         resp = client.patch("/api/transactions/", json=payload)
 
         assert resp.status_code == 422
+
+    @pytest.mark.unit
+    def test_patch_transaction_reflects_date_created_in_response_when_date_is_provided(
+        self, client, created_transaction
+    ):
+        patched_date = "2020-02-02"
+        payload = {
+            "id": created_transaction["id"],
+            "user_id": created_transaction["user_id"],
+            "date_created": patched_date,
+        }
+
+        response = client.patch("/api/transactions/", json=payload)
+
+        assert response.status_code == 200
+        assert response.json()["date_created"] == patched_date
 
 
 class TestDeleteTransaction:

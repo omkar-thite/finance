@@ -8,7 +8,7 @@ class BaseTrx(BaseModel):
     # Base contains the common fields, but we make them optional for the "Base"
     type: TrxTypeEnum
     instrument: str
-    units: int = Field(ge=0)
+    units: int = Field(gt=0)
     rate: Decimal
     charges: Decimal = Decimal("0")
 
@@ -107,7 +107,7 @@ class ResponseHolding(BaseHolding):
     pass
 
 
-class PatchHolding:
+class PatchHolding(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     instrument_id: str | None = None

@@ -193,7 +193,7 @@ def user_transactions_page(
 
 
 # Get user by id
-@app.get("/api/users/{id}", response_model=ResponseUser)
+@app.get("/api/users/{user_id}", response_model=ResponseUser)
 def get_user_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
     user = get_user(db, user_id)
     if not user:
@@ -371,6 +371,7 @@ def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db
         units=trx.units,
         rate=trx.rate,
         user_id=user.id,
+        charges=trx.charges,
     )
     db.add(new_trx)
     db.flush()
