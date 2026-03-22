@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from schema import CreateAsset, PatchAsset, ResponseAsset
 
-pytestmark = pytest.mark.unit
+pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 
 
 class _AssetSource:
@@ -20,7 +20,7 @@ class _AssetSource:
         self.average_rate = "123.4500"
 
 
-def test_create_asset_parses_payload_when_fields_are_valid():
+async def test_create_asset_parses_payload_when_fields_are_valid():
     payload = {
         "instrument": "AAPL",
         "total_units": 12,
@@ -34,7 +34,7 @@ def test_create_asset_parses_payload_when_fields_are_valid():
     assert str(parsed.average_rate) == "123.4500"
 
 
-def test_create_asset_raises_validation_error_when_required_field_is_missing():
+async def test_create_asset_raises_validation_error_when_required_field_is_missing():
     payload = {
         "instrument": "AAPL",
         "total_units": 12,
@@ -46,7 +46,7 @@ def test_create_asset_raises_validation_error_when_required_field_is_missing():
     assert "average_rate" in str(exc_info.value)
 
 
-def test_patch_asset_parses_minimal_payload_when_only_required_ids_are_provided():
+async def test_patch_asset_parses_minimal_payload_when_only_required_ids_are_provided():
     payload = {
         "id": 1,
         "user_id": 9,
@@ -61,7 +61,7 @@ def test_patch_asset_parses_minimal_payload_when_only_required_ids_are_provided(
     assert parsed.average_rate is None
 
 
-def test_patch_asset_raises_validation_error_when_extra_field_is_provided():
+async def test_patch_asset_raises_validation_error_when_extra_field_is_provided():
     payload = {
         "id": 1,
         "user_id": 9,
@@ -74,7 +74,7 @@ def test_patch_asset_raises_validation_error_when_extra_field_is_provided():
     assert "Extra inputs are not permitted" in str(exc_info.value)
 
 
-def test_response_asset_reads_attributes_when_model_is_built_from_orm_like_source():
+async def test_response_asset_reads_attributes_when_model_is_built_from_orm_like_source():
     source = _AssetSource()
 
     parsed = ResponseAsset.model_validate(source, from_attributes=True)

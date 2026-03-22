@@ -17,9 +17,6 @@ def event_loop_policy():
     return asyncio.DefaultEventLoopPolicy()
 
 
-# ==============================================================================
-# 1. Bulletproof Dependency Cleanup (The Safety Net)
-# ==============================================================================
 @pytest.fixture(autouse=True)
 def clear_dependency_overrides():
     """
@@ -31,9 +28,6 @@ def clear_dependency_overrides():
     app.dependency_overrides.clear()
 
 
-# ==============================================================================
-# 2. Core Testing Fixtures
-# ==============================================================================
 @pytest.fixture
 def mock_db_session() -> AsyncMock:
     """

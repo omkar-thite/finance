@@ -118,6 +118,8 @@ class Transaction(Base):
 class Asset(Base):
     __tablename__ = "assets"
 
+    # TODO: change primary key to (user_id, instrument_id)
+
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     instrument: Mapped[str] = mapped_column(String(50), nullable=False)
     total_units: Mapped[int] = mapped_column(Integer, nullable=False)

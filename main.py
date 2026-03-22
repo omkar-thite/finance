@@ -2,12 +2,15 @@ from typing import Annotated
 
 from fastapi import FastAPI, Request, status, Depends
 from fastapi.exceptions import HTTPException
-from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from utils.enums import TrxTypeEnum
 from decimal import Decimal
 
+from contextlib import asynccontextmanager
+from fastapi.exception_handlers import (
+    http_exception_handler,
+)
 from schema import (
     CreateTrx,
     ResponseTrx,
@@ -21,55 +24,81 @@ from schema import (
 )
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 import models
 from database import engine, get_db, Base
-
 from utils.error_messages import ErrorMessages
 
-# Create tables if not exists
-Base.metadata.create_all(bind=engine)
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield
+    await engine.dispose()
+
+
+app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/media", StaticFiles(directory="media"), name="media")
-
 templates = Jinja2Templates(directory="templates")
 
 
-def get_user(db: Session, user_id: int) -> models.User | None:
-    return db.get(models.User, user_id)
+async def get_user(db: AsyncSession, user_id: int) -> models.User | None:
+    return await db.get(models.User, user_id)
 
 
-def _recalculate_asset_from_transactions(
-    db: Session, user_id: int, instrument: str
+async def _recalculate_asset_from_transactions(
+    db: AsyncSession, user_id: int, instrument: str
 ) -> models.Asset | None:
-    # Get user's transactions with current instrument
-    transactions = (
-        db.execute(
-            select(models.Transaction)
-            .where(
-                models.Transaction.user_id == user_id,
-                models.Transaction.instrument == instrument,
-            )
-            .order_by(models.Transaction.id)
-        )
-        .scalars()
-        .all()
-    )
 
-    asset = (
-        db.execute(
+    # Get user's transactions with input instrument
+    transactions = await db.execute(
+        select(models.Transaction)
+        .options(
+            selectinload(models.Transaction.user),
+            selectinload(models.Transaction.asset),
+        )
+        .where(
+            models.Transaction.user_id == user_id,
+            models.Transaction.instrument == instrument,
+        )
+        .order_by(models.Transaction.id)
+    )
+    transactions = transactions.scalars().all()
+
+    if not transactions:
+        # When an instrument has no transactions left (e.g. after patch/delete),
+        # remove any stale asset snapshot for that instrument.
+        asset_result = await db.execute(
             select(models.Asset).where(
                 models.Asset.user_id == user_id,
                 models.Asset.instrument == instrument,
             )
         )
-        .scalars()
-        .first()
+        stale_asset = asset_result.scalars().first()
+        if stale_asset is not None:
+            await db.delete(stale_asset)
+            await db.flush()
+        return None
+
+    # Get current insturment asset of user
+    asset = await db.execute(
+        select(models.Asset)
+        .options(selectinload(models.Asset.transactions))
+        .where(
+            models.Asset.user_id == user_id,
+            models.Asset.instrument == instrument,
+        )
     )
+    asset = asset.scalars().first()
+
+    if not asset:
+        asset = None
 
     total_units = 0
     average_rate = Decimal("0")
@@ -96,8 +125,8 @@ def _recalculate_asset_from_transactions(
         if asset is not None:
             for trx in transactions:
                 trx.asset_id = None
-            db.delete(asset)
-            db.flush()
+            await db.delete(asset)
+            await db.flush()
         return None
 
     if asset is None:
@@ -108,7 +137,7 @@ def _recalculate_asset_from_transactions(
             user_id=user_id,
         )
         db.add(asset)
-        db.flush()
+        await db.flush()
     else:
         asset.total_units = total_units
         asset.average_rate = average_rate
@@ -129,10 +158,10 @@ def home_page(request: Request):
 
 # User home page
 @app.get("/users/{user_id}", include_in_schema=False)
-def user_home_page(
-    request: Request, user_id: int, db: Annotated[Session, Depends(get_db)]
+async def user_home_page(
+    request: Request, user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    result = db.execute(select(models.User).where(models.User.id == user_id))
+    result = await db.execute(select(models.User).where(models.User.id == user_id))
     user = result.scalars().first()
 
     if not user:
@@ -141,7 +170,7 @@ def user_home_page(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    result = db.execute(
+    result = await db.execute(
         select(models.Transaction).where(models.Transaction.user_id == user_id)
     )
     transactions = result.scalars().all()
@@ -155,8 +184,10 @@ def user_home_page(
 
 # All transactions
 @app.get("/transactions/", include_in_schema=False)
-def all_transactions_page(request: Request, db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(select(models.Transaction))
+async def all_transactions_page(
+    request: Request, db: Annotated[AsyncSession, Depends(get_db)]
+):
+    result = await db.execute(select(models.Transaction))
     transactions = result.scalars().all()
     return templates.TemplateResponse(
         request, name="transactions.html", context={"transactions": transactions}
@@ -167,11 +198,11 @@ def all_transactions_page(request: Request, db: Annotated[Session, Depends(get_d
 @app.get(
     "/users/{user_id}/transactions", include_in_schema=False, name="user_transactions"
 )
-def user_transactions_page(
-    request: Request, user_id: int, db: Annotated[Session, Depends(get_db)]
+async def user_transactions_page(
+    request: Request, user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 ):
 
-    result = db.execute(select(models.User).where(models.User.id == user_id))
+    result = await db.execute(select(models.User).where(models.User.id == user_id))
     user = result.scalars().first()
 
     if not user:
@@ -179,7 +210,7 @@ def user_transactions_page(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ErrorMessages.User.NOT_FOUND,
         )
-    result = db.execute(
+    result = await db.execute(
         select(models.Transaction).where(models.Transaction.user_id == user_id)
     )
     transactions = result.scalars().all()
@@ -194,8 +225,8 @@ def user_transactions_page(
 
 # Get user by id
 @app.get("/api/users/{user_id}", response_model=ResponseUser)
-def get_user_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
-    user = get_user(db, user_id)
+async def get_user_api(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+    user = await get_user(db, user_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.User.NOT_FOUND
@@ -205,16 +236,20 @@ def get_user_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
 
 # Get all users
 @app.get("/api/users/", response_model=list[ResponseUser])
-def get_users_api(db: Annotated[Session, Depends(get_db)]):
-    return db.execute(select(models.User)).scalars().all()
+async def get_users_api(db: Annotated[AsyncSession, Depends(get_db)]):
+    result = await db.execute(
+        select(models.User).options(selectinload(models.User.contact))
+    )
+    return result.scalars().all()
 
 
 # Post: Create a user
 @app.post(
     "/api/users/", status_code=status.HTTP_201_CREATED, response_model=ResponseUser
 )
-def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(
+async def create_user(user: CreateUser, db: Annotated[AsyncSession, Depends(get_db)]):
+    # Check if username exists
+    result = await db.execute(
         select(models.User).where(models.User.username == user.username)
     )
     username = result.scalars().first()
@@ -225,25 +260,19 @@ def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
             detail=ErrorMessages.User.USERNAME_EXISTS,
         )
 
-    email_exists = (
-        db.execute(
-            select(models.UserContact).where(models.UserContact.email == user.email)
-        )
-        .scalars()
-        .first()
+    email_exists = await db.execute(
+        select(models.UserContact).where(models.UserContact.email == user.email)
     )
+    email_exists = email_exists.scalars().first()
 
     phone_exists = None
     if user.phone_no is not None:
-        phone_exists = (
-            db.execute(
-                select(models.UserContact).where(
-                    models.UserContact.phone_no == user.phone_no
-                )
+        phone_exists = await db.execute(
+            select(models.UserContact).where(
+                models.UserContact.phone_no == user.phone_no
             )
-            .scalars()
-            .first()
         )
+        phone_exists = phone_exists.scalars().first()
 
     if email_exists or phone_exists:
         raise HTTPException(
@@ -256,20 +285,23 @@ def create_user(user: CreateUser, db: Annotated[Session, Depends(get_db)]):
         username=user.username,
         contact=new_contact,
     )
+
     db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
+    await db.commit()
+    await db.refresh(new_user)
 
     return new_user
 
 
 # Patch: Update a user
 @app.patch("/api/users/", status_code=status.HTTP_200_OK, response_model=ResponseUser)
-def patch_user(user_update_data: PatchUser, db: Annotated[Session, Depends(get_db)]):
+async def patch_user(
+    user_update_data: PatchUser, db: Annotated[AsyncSession, Depends(get_db)]
+):
     # TODO: Extract user id from current session
     # user_id = ...
 
-    user = db.get(models.User, user_update_data.user_id)
+    user = await db.get(models.User, user_update_data.user_id)
 
     if not user:
         raise HTTPException(
@@ -283,20 +315,20 @@ def patch_user(user_update_data: PatchUser, db: Annotated[Session, Depends(get_d
         setattr(user, field, value)
 
     # Commit post to database
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
 
     return user
 
 
 # Delete: Delete a user
 @app.delete("/api/users/", status_code=status.HTTP_204_NO_CONTENT)
-def delete_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
+async def delete_user(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
     # TODO: Extract user id from current session
     # user_id = ...
 
-    user = db.get(models.User, user_id)
+    user = await db.get(models.User, user_id)
 
     if not user:
         raise HTTPException(
@@ -304,15 +336,17 @@ def delete_user(user_id: int, db: Annotated[Session, Depends(get_db)]):
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    db.delete(user)
-    db.commit()
+    await db.delete(user)
+    await db.commit()
 
 
 # Get transaction by id
 @app.get("/api/transactions/{id}", response_model=ResponseTrx)
-def get_transaction_api(id: int, db: Annotated[Session, Depends(get_db)]):
+async def get_transaction_api(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
-    result = db.execute(select(models.Transaction).where(models.Transaction.id == id))
+    result = await db.execute(
+        select(models.Transaction).where(models.Transaction.id == id)
+    )
     tx = result.scalars().first()
 
     if not tx:
@@ -320,13 +354,16 @@ def get_transaction_api(id: int, db: Annotated[Session, Depends(get_db)]):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=ErrorMessages.Transaction.NOT_FOUND,
         )
+
     return tx
 
 
 # Get all transaction of specific user
 @app.get("/api/users/{user_id}/transactions", response_model=list[ResponseTrx])
-def get_user_transactions_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
-    user = get_user(db, user_id)
+async def get_user_transactions_api(
+    user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
+):
+    user = await get_user(db, user_id)
 
     if not user:
         raise HTTPException(
@@ -334,7 +371,7 @@ def get_user_transactions_api(user_id: int, db: Annotated[Session, Depends(get_d
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    result = db.execute(
+    result = await db.execute(
         select(models.Transaction).where(models.Transaction.user_id == user_id)
     )
     transactions = result.scalars().all()
@@ -344,8 +381,8 @@ def get_user_transactions_api(user_id: int, db: Annotated[Session, Depends(get_d
 
 # Get all transactions from table
 @app.get("/api/transactions/", response_model=list[ResponseTrx])
-def get_all_transactions_api(db: Annotated[Session, Depends(get_db)]):
-    result = db.execute(select(models.Transaction))
+async def get_all_transactions_api(db: Annotated[AsyncSession, Depends(get_db)]):
+    result = await db.execute(select(models.Transaction))
     txs = result.scalars().all()
     return txs
 
@@ -356,8 +393,10 @@ def get_all_transactions_api(db: Annotated[Session, Depends(get_db)]):
     status_code=status.HTTP_201_CREATED,
     response_model=ResponseTrx,
 )
-def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db)]):
-    user = get_user(db, trx.user_id)
+async def create_transaction_api(
+    trx: CreateTrx, db: Annotated[AsyncSession, Depends(get_db)]
+):
+    user = await get_user(db, trx.user_id)
 
     if not user:
         raise HTTPException(
@@ -374,13 +413,13 @@ def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db
         charges=trx.charges,
     )
     db.add(new_trx)
-    db.flush()
+    await db.flush()
 
-    asset = _recalculate_asset_from_transactions(db, user.id, trx.instrument)
+    asset = await _recalculate_asset_from_transactions(db, user.id, trx.instrument)
     new_trx.asset_id = asset.id if asset else None
 
-    db.commit()
-    db.refresh(new_trx)
+    await db.commit()
+    await db.refresh(new_trx)
 
     return new_trx
 
@@ -389,14 +428,16 @@ def create_transaction_api(trx: CreateTrx, db: Annotated[Session, Depends(get_db
 @app.patch(
     "/api/transactions/", status_code=status.HTTP_200_OK, response_model=ResponseTrx
 )
-def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]):
+async def patch_trx(
+    trx_update_data: PatchTrx, db: Annotated[AsyncSession, Depends(get_db)]
+):
     # TODO: Get user id from session
     # user_id =
 
     # TODO: Authnticate user id with session user id
     # ...
 
-    user = db.get(models.User, trx_update_data.user_id)
+    user = await db.get(models.User, trx_update_data.user_id)
 
     if not user:
         raise HTTPException(
@@ -404,7 +445,7 @@ def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    trx = db.get(models.Transaction, trx_update_data.id)
+    trx = await db.get(models.Transaction, trx_update_data.id)
 
     if not trx:
         raise HTTPException(
@@ -425,34 +466,39 @@ def patch_trx(trx_update_data: PatchTrx, db: Annotated[Session, Depends(get_db)]
         exclude={"id", "user_id"},
     )
 
+    # Update fields of transaction with new values
     for field, value in update_data.items():
         setattr(trx, field, value)
 
-    db.flush()
+    await db.flush()
 
+    # change asset's holdings for old instrument if instrument is updated in transaction
     if old_instrument != trx.instrument:
-        _recalculate_asset_from_transactions(db, trx.user_id, old_instrument)
+        await _recalculate_asset_from_transactions(db, trx.user_id, old_instrument)
 
-    current_asset = _recalculate_asset_from_transactions(
+    # change asset's holdings for new instrument
+    current_asset = await _recalculate_asset_from_transactions(
         db, trx.user_id, trx.instrument
     )
     trx.asset_id = current_asset.id if current_asset else None
 
     # Commit post to database
-    db.commit()
-    db.refresh(trx)
+    await db.commit()
+    await db.refresh(trx)
 
     return trx
 
 
 # Delete: Delete a transaction
 @app.delete("/api/transactions/", status_code=status.HTTP_204_NO_CONTENT)
-def delete_trx(user_id: int, trx_id: int, db: Annotated[Session, Depends(get_db)]):
+async def delete_trx(
+    user_id: int, trx_id: int, db: Annotated[AsyncSession, Depends(get_db)]
+):
 
     # TODO: Extract user id from current session
     # user_id = ...
 
-    user = db.get(models.User, user_id)
+    user = await db.get(models.User, user_id)
 
     if not user:
         raise HTTPException(
@@ -460,7 +506,7 @@ def delete_trx(user_id: int, trx_id: int, db: Annotated[Session, Depends(get_db)
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    trx = db.get(models.Transaction, trx_id)
+    trx = await db.get(models.Transaction, trx_id)
     if not trx:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -475,21 +521,23 @@ def delete_trx(user_id: int, trx_id: int, db: Annotated[Session, Depends(get_db)
 
     instrument = trx.instrument
 
-    db.delete(trx)
-    db.flush()
+    await db.delete(trx)
+    await db.flush()
 
-    _recalculate_asset_from_transactions(db, user_id, instrument)
+    await _recalculate_asset_from_transactions(db, user_id, instrument)
+    await db.commit()
 
-    db.commit()
 
-
+# Get user's assets
 @app.get("/api/users/{user_id}/assets", response_model=list[ResponseAsset])
-def get_user_assets_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
+async def get_user_assets_api(
+    user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
+):
 
     # TODO: Get user_id from current session after implementing
     # authenticte with passed user_id
 
-    user = db.get(models.User, user_id)
+    user = await db.get(models.User, user_id)
 
     if not user:
         raise HTTPException(
@@ -497,20 +545,26 @@ def get_user_assets_api(user_id: int, db: Annotated[Session, Depends(get_db)]):
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    result = db.execute(select(models.Asset).where(models.Asset.user_id == user_id))
+    result = await db.execute(
+        select(models.Asset)
+        .options(selectinload(models.Asset.transactions))
+        .where(models.Asset.user_id == user_id)
+    )
     assets = result.scalars().all()
-
     return assets
 
 
+# Create asset for user
 @app.post("/api/users/{user_id}/assets", response_model=ResponseAsset)
-def create_user_assets_api(
-    user_id: int, create_asset: CreateAsset, db: Annotated[Session, Depends(get_db)]
+async def create_user_assets_api(
+    user_id: int,
+    create_asset: CreateAsset,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
 
     # TODO: Get user_id from current session after implementing authenticte with passed user_id
 
-    user = db.get(models.User, user_id)
+    user = await db.get(models.User, user_id)
 
     if not user:
         raise HTTPException(
@@ -525,23 +579,24 @@ def create_user_assets_api(
         user_id=user.id,
     )
     db.add(new_asset)
-    db.commit()
-    db.refresh(new_asset)
+    await db.commit()
+    await db.refresh(new_asset, attribute_names=["transactions"])
 
     return new_asset
 
 
+# Patch user's asset
 @app.patch("/api/users/{user_id}/assets/{asset_id}", response_model=ResponseAsset)
-def patch_user_assets_api(
+async def patch_user_assets_api(
     user_id: int,
     asset_id: int,
     asset_update_data: PatchAsset,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
 
     # TODO: Get user_id from current session after implementing authenticte with passed user_id
 
-    user = db.get(models.User, user_id)
+    user = await db.get(models.User, user_id)
 
     if not user:
         raise HTTPException(
@@ -549,7 +604,7 @@ def patch_user_assets_api(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    asset = db.get(models.Asset, asset_id)
+    asset = await db.get(models.Asset, asset_id)
 
     if not asset or asset.user_id != user_id:
         raise HTTPException(
@@ -572,7 +627,7 @@ def patch_user_assets_api(
             detail="Asset holdings are derived from transactions. Patch transactions instead.",
         )
 
-    refreshed_asset = _recalculate_asset_from_transactions(
+    refreshed_asset = await _recalculate_asset_from_transactions(
         db, user_id, asset.instrument
     )
     if refreshed_asset is None:
@@ -581,8 +636,8 @@ def patch_user_assets_api(
             detail="Asset not found",
         )
 
-    db.commit()
-    db.refresh(refreshed_asset)
+    await db.commit()
+    await db.refresh(refreshed_asset)
 
     return refreshed_asset
 
@@ -593,10 +648,8 @@ def patch_user_assets_api(
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc: HTTPException):
     if request.url.path.startswith("/api/"):
-        return JSONResponse(
-            status_code=status.HTTP_404_NOT_FOUND,
-            content={"detail": exc.detail or "Not found"},
-        )
+        return await http_exception_handler(request, exc)
+
     return templates.TemplateResponse(
         request,
         name="error.html",

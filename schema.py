@@ -20,6 +20,8 @@ class CreateTrx(BaseTrx):
 
 class ResponseTrx(BaseTrx):
     model_config = ConfigDict(from_attributes=True)
+
+    # TODO: Later change this to user_id to ReponseUser from auth session
     id: int
     user_id: int
     asset_id: int | None = None

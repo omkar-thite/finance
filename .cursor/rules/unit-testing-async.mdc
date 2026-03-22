@@ -5,7 +5,9 @@ alwaysApply: false
 ---
 Target: For the specific file or feature currently in context, write comprehensive
 unit tests covering its functions, methods, routes, and schemas. Assert exact
-expected behavior. Complement existing tests by covering gaps and edge cases.
+expected behavior. If not in refactor mode, Complement existing tests by covering gaps and edge cases.
+
+(Note: If Refactoring Mode is active, ignore instructions to cover gaps and strictly follow Refactoring Mode constraints).
 
 Consider the following rules strictly to ensure high-quality, maintainable tests
 that provide strong regression protection and documentation of expected behavior.
@@ -13,12 +15,12 @@ that provide strong regression protection and documentation of expected behavior
 Assume tests are executed via pytest unless otherwise specified.
 
 ## Project Stack
-- Python, FastAPI, SQLAlchemy (async), PostgreSQL, Pydantic v2, pytest, pytest-asyncio
+- Python, FastAPI, SQLAlchemy (async), PostgreSQL(planned) or sqlite (current), Pydantic v2, pytest, pytest-asyncio
 - Apply all rules below to any new libraries introduced.
 
 ## Test Writing Rules
 
-Act as a senior backend engineer. When writing or updating tests, follow these
+Act as a senior backend QA engineer. When writing or updating tests, follow these
 rules strictly:
 
 ### 1. Scope and Isolation
@@ -37,9 +39,12 @@ rules strictly:
   and decorated with `@pytest.mark.asyncio`.
 - Never call an async function without `await`. A test that calls a coroutine
   without awaiting it will silently pass while testing nothing.
-- Use `pytest_plugins = ('anyio',)` or `asyncio_mode = "auto"` in `conftest.py`
+- Use `asyncio_mode = "auto"` in `conftest.py`
   if the project is configured for auto mode — check before adding per-test
   decorators.
+- If `asyncio_mode = "auto"` is present, check pytest.ini for asyncio_default_fixture_loop_scope before manually adding loop scopes to individual fixtures, as modifying the pytest.ini is the preferred global fix.
+- The existing synchronous baseline tests in the target file are the migration guard
+
 
 ### 3. Database Mocking Strategy 
 Unit tests must never touch a real database. Use the following strategies by
@@ -124,13 +129,15 @@ Contract: creates, reads, updates, deletes transactions.
 """
 ```
 
-## Additional Cursor Instructions:
+## Additional Instructions:
 - When I ask to "generate tests", always follow the patterns in this file for unit tests.
 - Before writing any mock, locate and read the relevant models.py and schemas.py for the module under test. 
 - Derive mock field values from actual model columns and schema validators — never invent fields.
+- Never look for internals of any frameworks like sqlalchemy while writing tests. If unsure about framework's behaviour, specifically ask user.  
 
+## Refactoring Mode 
+- Activated when the user message contains: "enter refactor mode" 
 
-## Refactoring Mode (invoke explicitly in chat when restructuring code without changing behavior)
 
 - Do NOT infer new expected behavior from the refactored code.
 - NEVER add new test cases unless explicitly asked.
@@ -138,7 +145,7 @@ Contract: creates, reads, updates, deletes transactions.
 - If an assertion change is required, ask the human to confirm the behavior 
   change is intentional before touching it.
 - Assume characterization tests already exist. Do not write tests to cover 
-  gaps unless explicitly instructed.
+  gaps of existing logic unless explicitly instructed.
 - You may ONLY change:
   - async mechanics (def → async def, adding await, MagicMock → AsyncMock)
   - imports that broke due to renamed/moved modules
