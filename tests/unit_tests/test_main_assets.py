@@ -15,7 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
-from main import _recalculate_asset_from_transactions, app
+from utils.app_services import _recalculate_asset_from_transactions
+from main import app
 
 pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 
