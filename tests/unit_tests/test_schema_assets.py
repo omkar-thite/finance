@@ -1,86 +1,81 @@
 """
 Guards: schema.py
-Contract: validates asset schema acceptance and rejection behavior.
+Contract: validates holdings schema acceptance and rejection behavior.
 """
 
 import pytest
 from pydantic import ValidationError
 
-from schema import CreateAsset, PatchAsset, ResponseAsset
+from schema import CreateHoldings, PatchHoldings, ResponseHoldings
 
 pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 
 
-class _AssetSource:
+class _HoldingsSource:
     def __init__(self):
-        self.id = 10
+        self.instrument_id = 10
         self.user_id = 2
-        self.instrument = "AAPL"
-        self.total_units = 12
+        self.quantity = 12
         self.average_rate = "123.4500"
 
 
-async def test_create_asset_parses_payload_when_fields_are_valid():
+async def test_create_holdings_parses_payload_when_fields_are_valid():
     payload = {
-        "instrument": "AAPL",
-        "total_units": 12,
+        "instrument_id": 10,
+        "quantity": 12,
         "average_rate": "123.4500",
+        "user_id": 2,
     }
 
-    parsed = CreateAsset.model_validate(payload)
+    parsed = CreateHoldings.model_validate(payload)
 
-    assert parsed.instrument == "AAPL"
-    assert parsed.total_units == 12
+    assert parsed.instrument_id == 10
+    assert parsed.quantity == 12
     assert str(parsed.average_rate) == "123.4500"
+    assert parsed.user_id == 2
 
 
-async def test_create_asset_raises_validation_error_when_required_field_is_missing():
+async def test_create_holdings_raises_validation_error_when_required_field_is_missing():
     payload = {
-        "instrument": "AAPL",
-        "total_units": 12,
+        "instrument_id": 10,
+        "quantity": 12,
     }
 
     with pytest.raises(ValidationError) as exc_info:
-        CreateAsset.model_validate(payload)
+        CreateHoldings.model_validate(payload)
 
-    assert "average_rate" in str(exc_info.value)
+    assert "user_id" in str(exc_info.value)
 
 
-async def test_patch_asset_parses_minimal_payload_when_only_required_ids_are_provided():
+async def test_patch_holdings_parses_payload_when_supported_fields_are_provided():
     payload = {
-        "id": 1,
-        "user_id": 9,
+        "total_units": 9,
+        "average_rate": "45.6000",
     }
 
-    parsed = PatchAsset.model_validate(payload)
+    parsed = PatchHoldings.model_validate(payload)
 
-    assert parsed.id == 1
-    assert parsed.user_id == 9
-    assert parsed.instrument is None
-    assert parsed.total_units is None
-    assert parsed.average_rate is None
+    assert parsed.total_units == 9
+    assert str(parsed.average_rate) == "45.6000"
 
 
-async def test_patch_asset_raises_validation_error_when_extra_field_is_provided():
+async def test_patch_holdings_raises_validation_error_when_extra_field_is_provided():
     payload = {
-        "id": 1,
-        "user_id": 9,
+        "total_units": 1,
         "extra": "not_allowed",
     }
 
     with pytest.raises(ValidationError) as exc_info:
-        PatchAsset.model_validate(payload)
+        PatchHoldings.model_validate(payload)
 
     assert "Extra inputs are not permitted" in str(exc_info.value)
 
 
-async def test_response_asset_reads_attributes_when_model_is_built_from_orm_like_source():
-    source = _AssetSource()
+async def test_response_holdings_reads_attributes_when_model_is_built_from_orm_like_source():
+    source = _HoldingsSource()
 
-    parsed = ResponseAsset.model_validate(source, from_attributes=True)
+    parsed = ResponseHoldings.model_validate(source, from_attributes=True)
 
-    assert parsed.id == 10
-    assert parsed.user_id == 2
-    assert parsed.instrument == "AAPL"
-    assert parsed.total_units == 12
+    assert parsed.instrument_id == 10
+    assert parsed.quantity == 12
     assert str(parsed.average_rate) == "123.4500"

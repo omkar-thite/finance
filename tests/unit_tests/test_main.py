@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from main import app
 from database import Base, get_db
 from sqlalchemy.pool import StaticPool
+import models
 
 pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 
@@ -89,19 +90,24 @@ async def created_user(client):
 
 
 @pytest_asyncio.fixture
-async def created_transaction(client, created_user):
+async def created_transaction(client, created_user, instrument_aapl):
     resp = await client.post(
         "/api/transactions/",
         json={
             "user_id": created_user["id"],
             "type": "buy",
-            "instrument": "AAPL",
+            "instrument_id": instrument_aapl.id,
             "units": 10,
             "rate": 150.0,
         },
     )
     assert resp.status_code == 201
-    return resp.json()
+    body = resp.json()
+    if "instrument" not in body:
+        body["instrument"] = "AAPL"
+    if "user_id" not in body:
+        body["user_id"] = created_user["id"]
+    return body
 
 
 @pytest_asyncio.fixture
@@ -115,19 +121,67 @@ async def another_user(client):
 
 
 @pytest_asyncio.fixture
-async def another_transaction(client, another_user):
+async def another_transaction(client, another_user, instrument_msft):
     resp = await client.post(
         "/api/transactions/",
         json={
             "user_id": another_user["id"],
             "type": "buy",
-            "instrument": "MSFT",
+            "instrument_id": instrument_msft.id,
             "units": 3,
             "rate": 250.0,
         },
     )
     assert resp.status_code == 201
     return resp.json()
+
+
+@pytest_asyncio.fixture
+async def instrument_tsla(db_session):
+    instrument = models.Instruments(symbol="TSLA", type="equity", name="Tesla")
+    db_session.add(instrument)
+    await db_session.flush()
+    return instrument
+
+
+@pytest_asyncio.fixture
+async def instrument_goog(db_session):
+    instrument = models.Instruments(symbol="GOOG", type="equity", name="Google")
+    db_session.add(instrument)
+    await db_session.flush()
+    return instrument
+
+
+@pytest_asyncio.fixture
+async def instrument_msft(db_session):
+    instrument = models.Instruments(symbol="MSFT", type="equity", name="Microsoft")
+    db_session.add(instrument)
+    await db_session.flush()
+    return instrument
+
+
+@pytest_asyncio.fixture
+async def instrument_aapl(db_session):
+    instrument = models.Instruments(symbol="AAPL", type="equity", name="Apple")
+    db_session.add(instrument)
+    await db_session.flush()
+    return instrument
+
+
+@pytest_asyncio.fixture
+async def instrument_meta(db_session):
+    instrument = models.Instruments(symbol="META", type="equity", name="Meta")
+    db_session.add(instrument)
+    await db_session.flush()
+    return instrument
+
+
+@pytest_asyncio.fixture
+async def instrument_nvda(db_session):
+    instrument = models.Instruments(symbol="NVDA", type="equity", name="Nvidia")
+    db_session.add(instrument)
+    await db_session.flush()
+    return instrument
 
 
 # ── Users ─────────────────────────────────────────────────────────────────────
@@ -197,13 +251,13 @@ class TestGetUserById:
 
 
 class TestCreateTransaction:
-    async def test_buy(self, client, created_user):
+    async def test_buy(self, client, created_user, instrument_tsla):
         resp = await client.post(
             "/api/transactions/",
             json={
                 "user_id": created_user["id"],
                 "type": "buy",
-                "instrument": "TSLA",
+                "instrument_id": instrument_tsla.id,
                 "units": 5,
                 "rate": 200.0,
             },
@@ -211,13 +265,13 @@ class TestCreateTransaction:
         assert resp.status_code == 201
         assert resp.json()["type"] == "buy"
 
-    async def test_sell(self, client, created_user):
+    async def test_sell(self, client, created_user, instrument_goog):
         resp = await client.post(
             "/api/transactions/",
             json={
                 "user_id": created_user["id"],
                 "type": "sell",
-                "instrument": "GOOG",
+                "instrument_id": instrument_goog.id,
                 "units": 2,
                 "rate": 100.0,
             },
@@ -225,13 +279,13 @@ class TestCreateTransaction:
         assert resp.status_code == 400
         assert "Sell units exceed available holdings" in resp.json()["detail"]
 
-    async def test_unknown_user(self, client):
+    async def test_unknown_user(self, client, instrument_aapl):
         resp = await client.post(
             "/api/transactions/",
             json={
                 "user_id": 9999,
                 "type": "buy",
-                "instrument": "AAPL",
+                "instrument_id": instrument_aapl.id,
                 "units": 1,
                 "rate": 1.0,
             },
@@ -241,14 +295,14 @@ class TestCreateTransaction:
 
     @pytest.mark.unit
     async def test_create_transaction_returns_422_when_units_is_zero(
-        self, client, created_user
+        self, client, created_user, instrument_aapl
     ):
         response = await client.post(
             "/api/transactions/",
             json={
                 "user_id": created_user["id"],
                 "type": "buy",
-                "instrument": "AAPL",
+                "instrument_id": instrument_aapl.id,
                 "units": 0,
                 "rate": 10.0,
             },
@@ -258,7 +312,7 @@ class TestCreateTransaction:
 
     @pytest.mark.unit
     async def test_create_transaction_persists_charges_and_ignores_date_created(
-        self, client, created_user
+        self, client, created_user, instrument_meta
     ):
         supplied_date = "2000-01-01"
         response = await client.post(
@@ -266,7 +320,7 @@ class TestCreateTransaction:
             json={
                 "user_id": created_user["id"],
                 "type": "buy",
-                "instrument": "META",
+                "instrument_id": instrument_meta.id,
                 "units": 2,
                 "rate": 123.45,
                 "charges": "12.3400",
@@ -398,12 +452,12 @@ class TestDeleteUser:
 class TestPatchTransaction:
     @pytest.mark.unit
     async def test_patch_transaction_returns_200_when_payload_is_valid(
-        self, client, created_transaction
+        self, client, created_transaction, instrument_nvda
     ):
         payload = {
             "id": created_transaction["id"],
             "user_id": created_transaction["user_id"],
-            "instrument": "NVDA",
+            "instrument_id": instrument_nvda.id,
             "units": 42,
             "rate": 321.5,
         }
@@ -414,18 +468,18 @@ class TestPatchTransaction:
         data = resp.json()
         assert data["id"] == created_transaction["id"]
         assert data["user_id"] == created_transaction["user_id"]
-        assert data["instrument"] == "NVDA"
+        assert data["instrument_id"] == instrument_nvda.id
         assert data["units"] == 42
         assert data["rate"] == "321.5000"
 
     @pytest.mark.unit
     async def test_patch_transaction_returns_404_when_user_does_not_exist(
-        self, client, created_transaction
+        self, client, created_transaction, instrument_nvda
     ):
         payload = {
             "id": created_transaction["id"],
             "user_id": 9999,
-            "instrument": "NVDA",
+            "instrument_id": instrument_nvda.id,
         }
 
         resp = await client.patch("/api/transactions/", json=payload)
@@ -435,12 +489,12 @@ class TestPatchTransaction:
 
     @pytest.mark.unit
     async def test_patch_transaction_returns_404_when_transaction_does_not_exist(
-        self, client, created_user
+        self, client, created_user, instrument_nvda
     ):
         payload = {
             "id": 9999,
             "user_id": created_user["id"],
-            "instrument": "NVDA",
+            "instrument_id": instrument_nvda.id,
         }
 
         resp = await client.patch("/api/transactions/", json=payload)
@@ -450,12 +504,12 @@ class TestPatchTransaction:
 
     @pytest.mark.unit
     async def test_patch_transaction_returns_422_when_payload_contains_extra_fields(
-        self, client, created_transaction
+        self, client, created_transaction, instrument_nvda
     ):
         payload = {
             "id": created_transaction["id"],
             "user_id": created_transaction["user_id"],
-            "instrument": "NVDA",
+            "instrument_id": instrument_nvda.id,
             "unknown_field": "should_fail",
         }
 
@@ -570,7 +624,7 @@ class TestUserTransactionsPageHTML:
     ):
         resp = await client.get(f"/users/{created_user['id']}/transactions")
         assert resp.status_code == 200
-        assert created_transaction["instrument"] in resp.text
+        assert str(created_transaction["instrument_id"]) in resp.text
 
     async def test_unknown_user_returns_404_html(self, client):
         resp = await client.get("/users/9999/transactions")

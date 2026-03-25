@@ -20,7 +20,7 @@ from utils.enums import TrxTypeEnum, InstrumentType
 from decimal import Decimal
 
 
-class User(Base):
+class Users(Base):
 
     __tablename__ = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -41,7 +41,7 @@ class User(Base):
     bank_details: Mapped[UserBankDetails] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
-    transactions: Mapped[list[Transaction]] = relationship(
+    transactions: Mapped[list[Transactions]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     holdings: Mapped[list[Holdings]] = relationship(
@@ -65,7 +65,7 @@ class UserContact(Base):
     phone_no: Mapped[str] = mapped_column(
         String(12), default=None, unique=True, nullable=True
     )
-    user: Mapped[User] = relationship(back_populates="contact")
+    user: Mapped[Users] = relationship(back_populates="contact")
 
 
 class UserAuth(Base):
@@ -75,7 +75,7 @@ class UserAuth(Base):
     )
     password_hash: Mapped[str] = mapped_column(String(250), unique=True, nullable=False)
     pin_hash: Mapped[str] = mapped_column(String(250), nullable=True, default=None)
-    user: Mapped[User] = relationship(back_populates="auth")
+    user: Mapped[Users] = relationship(back_populates="auth")
 
 
 class UserBankDetails(Base):
@@ -83,16 +83,15 @@ class UserBankDetails(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), primary_key=True, nullable=False, index=True
     )
-    user: Mapped[User] = relationship(back_populates="bank_details")
+    user: Mapped[Users] = relationship(back_populates="bank_details")
     pass
 
 
-class Transaction(Base):
+class Transactions(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     type: Mapped[TrxTypeEnum] = mapped_column(Enum(TrxTypeEnum), nullable=False)
-    instrument: Mapped[str] = mapped_column(String(50), nullable=False)
     units: Mapped[int] = mapped_column(Integer, nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
     charges: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=True, default=0)
@@ -106,51 +105,39 @@ class Transaction(Base):
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False, index=True
     )
-    asset_id: Mapped[int | None] = mapped_column(
-        ForeignKey("assets.id"), nullable=True, index=True
+    instrument_id: Mapped[int] = mapped_column(
+        ForeignKey("instruments.id"), nullable=False, index=True
     )
-    user: Mapped[User] = relationship(back_populates="transactions")
-    asset: Mapped[Asset] = relationship(back_populates="transactions")
+
+    user: Mapped[Users] = relationship(back_populates="transactions")
+    holdings: Mapped[Holdings] = relationship(back_populates="transactions")
 
     __table_args__ = (CheckConstraint("units > 0", name="transactions_units_gt_0"),)
-
-
-class Asset(Base):
-    __tablename__ = "assets"
-
-    # TODO: change primary key to (user_id, instrument_id)
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    instrument: Mapped[str] = mapped_column(String(50), nullable=False)
-    total_units: Mapped[int] = mapped_column(Integer, nullable=False)
-    average_rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), nullable=False, index=True
-    )
-
-    transactions: Mapped[list[Transaction]] = relationship(back_populates="asset")
 
 
 class Instruments(Base):
     __tablename__ = "instruments"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    type: Mapped[InstrumentType] = mapped_column(Enum(InstrumentType), nullable=False)
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
+    type: Mapped[InstrumentType] = mapped_column(Enum(InstrumentType), nullable=False)
     name: Mapped[str] = mapped_column(TEXT, nullable=False)
 
 
 class Holdings(Base):
     __tablename__ = "holdings"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), nullable=False, index=True
+        ForeignKey("users.id"), nullable=False, primary_key=True
     )
     instrument_id: Mapped[int] = mapped_column(
-        ForeignKey("instruments.id"), nullable=False, index=True
+        ForeignKey("instruments.id"), nullable=False, primary_key=True
     )
     quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     average_rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
+    transaction_id: Mapped[int] = mapped_column(
+        ForeignKey("transactions.id"), nullable=True, index=True
+    )
 
-    user: Mapped[User] = relationship(back_populates="holdings")
+    user: Mapped[Users] = relationship(back_populates="holdings")
+    transactions: Mapped[list[Transactions]] = relationship(back_populates="holdings")

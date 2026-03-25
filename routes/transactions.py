@@ -16,7 +16,7 @@ import models
 from database import get_db
 from utils.error_messages import ErrorMessages
 
-from utils.app_services import _recalculate_asset_from_transactions, get_user
+from utils.app_services import update_user_holdings, get_user
 
 router = APIRouter()
 
@@ -26,7 +26,7 @@ router = APIRouter()
 async def get_transaction_api(id: int, db: Annotated[AsyncSession, Depends(get_db)]):
 
     result = await db.execute(
-        select(models.Transaction).where(models.Transaction.id == id)
+        select(models.Transactions).where(models.Transactions.id == id)
     )
     tx = result.scalars().first()
 
@@ -42,7 +42,7 @@ async def get_transaction_api(id: int, db: Annotated[AsyncSession, Depends(get_d
 # Get all transactions from table
 @router.get("/", response_model=list[ResponseTrx])
 async def get_all_transactions_api(db: Annotated[AsyncSession, Depends(get_db)]):
-    result = await db.execute(select(models.Transaction))
+    result = await db.execute(select(models.Transactions))
     txs = result.scalars().all()
     return txs
 
@@ -64,9 +64,9 @@ async def create_transaction_api(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    new_trx = models.Transaction(
+    new_trx = models.Transactions(
         type=trx.type,
-        instrument=trx.instrument,
+        instrument_id=trx.instrument_id,
         units=trx.units,
         rate=trx.rate,
         user_id=user.id,
@@ -75,8 +75,7 @@ async def create_transaction_api(
     db.add(new_trx)
     await db.flush()
 
-    asset = await _recalculate_asset_from_transactions(db, user.id, trx.instrument)
-    new_trx.asset_id = asset.id if asset else None
+    await update_user_holdings(db, user.id, trx.instrument_id)
 
     await db.commit()
     await db.refresh(new_trx)
@@ -95,7 +94,7 @@ async def patch_trx(
     # TODO: Authnticate user id with session user id
     # ...
 
-    user = await db.get(models.User, trx_update_data.user_id)
+    user = await db.get(models.Users, trx_update_data.user_id)
 
     if not user:
         raise HTTPException(
@@ -103,7 +102,7 @@ async def patch_trx(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    trx = await db.get(models.Transaction, trx_update_data.id)
+    trx = await db.get(models.Transactions, trx_update_data.id)
 
     if not trx:
         raise HTTPException(
@@ -117,7 +116,7 @@ async def patch_trx(
             detail=ErrorMessages.Transaction.USER_NOT_OWNER,
         )
 
-    old_instrument = trx.instrument
+    old_instrument_id = trx.instrument_id
 
     update_data = trx_update_data.model_dump(
         exclude_unset=True,
@@ -130,15 +129,12 @@ async def patch_trx(
 
     await db.flush()
 
-    # change asset's holdings for old instrument if instrument is updated in transaction
-    if old_instrument != trx.instrument:
-        await _recalculate_asset_from_transactions(db, trx.user_id, old_instrument)
+    # change holdings for old instrument if instrument is updated in transaction
+    if old_instrument_id != trx.instrument_id:
+        await update_user_holdings(db, trx.user_id, old_instrument_id)
 
-    # change asset's holdings for new instrument
-    current_asset = await _recalculate_asset_from_transactions(
-        db, trx.user_id, trx.instrument
-    )
-    trx.asset_id = current_asset.id if current_asset else None
+    # change holdings for new instrument
+    await update_user_holdings(db, trx.user_id, trx.instrument_id)
 
     # Commit post to database
     await db.commit()
@@ -156,7 +152,7 @@ async def delete_trx(
     # TODO: Extract user id from current session
     # user_id = ...
 
-    user = await db.get(models.User, user_id)
+    user = await db.get(models.Users, user_id)
 
     if not user:
         raise HTTPException(
@@ -164,7 +160,7 @@ async def delete_trx(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    trx = await db.get(models.Transaction, trx_id)
+    trx = await db.get(models.Transactions, trx_id)
     if not trx:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -177,10 +173,10 @@ async def delete_trx(
             detail=ErrorMessages.Transaction.USER_NOT_OWNER,
         )
 
-    instrument = trx.instrument
+    instrument_id = trx.instrument_id
 
     await db.delete(trx)
     await db.flush()
 
-    await _recalculate_asset_from_transactions(db, user_id, instrument)
+    await update_user_holdings(db, user_id, instrument_id)
     await db.commit()

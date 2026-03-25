@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, status, Depends
 from fastapi.exceptions import HTTPException
-from utils.app_services import _recalculate_asset_from_transactions, get_user
+from utils.app_services import update_user_holdings, get_user
 
 
 from schema import (
@@ -10,9 +10,9 @@ from schema import (
     CreateUser,
     ResponseUser,
     PatchUser,
-    CreateAsset,
-    ResponseAsset,
-    PatchAsset,
+    CreateHoldings,
+    ResponseHoldings,
+    PatchHoldings,
 )
 
 from sqlalchemy import select
@@ -41,7 +41,7 @@ async def get_user_api(user_id: int, db: Annotated[AsyncSession, Depends(get_db)
 @router.get("/", response_model=list[ResponseUser])
 async def get_users_api(db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(
-        select(models.User).options(selectinload(models.User.contact))
+        select(models.Users).options(selectinload(models.Users.contact))
     )
     return result.scalars().all()
 
@@ -51,7 +51,7 @@ async def get_users_api(db: Annotated[AsyncSession, Depends(get_db)]):
 async def create_user(user: CreateUser, db: Annotated[AsyncSession, Depends(get_db)]):
     # Check if username exists
     result = await db.execute(
-        select(models.User).where(models.User.username == user.username)
+        select(models.Users).where(models.Users.username == user.username)
     )
     username = result.scalars().first()
 
@@ -82,7 +82,7 @@ async def create_user(user: CreateUser, db: Annotated[AsyncSession, Depends(get_
         )
 
     new_contact = models.UserContact(email=user.email, phone_no=user.phone_no)
-    new_user = models.User(
+    new_user = models.Users(
         username=user.username,
         contact=new_contact,
     )
@@ -102,7 +102,7 @@ async def patch_user(
     # TODO: Extract user id from current session
     # user_id = ...
 
-    user = await db.get(models.User, user_update_data.user_id)
+    user = await db.get(models.Users, user_update_data.user_id)
 
     if not user:
         raise HTTPException(
@@ -129,7 +129,7 @@ async def delete_user(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
     # TODO: Extract user id from current session
     # user_id = ...
 
-    user = await db.get(models.User, user_id)
+    user = await db.get(models.Users, user_id)
 
     if not user:
         raise HTTPException(
@@ -155,15 +155,15 @@ async def get_user_transactions_api(
         )
 
     result = await db.execute(
-        select(models.Transaction).where(models.Transaction.user_id == user_id)
+        select(models.Transactions).where(models.Transactions.user_id == user_id)
     )
     transactions = result.scalars().all()
 
     return transactions
 
 
-# Get user's assets
-@router.get("/{user_id}/assets", response_model=list[ResponseAsset])
+# Get user's holdings
+@router.get("/{user_id}/holdings", response_model=list[ResponseHoldings])
 async def get_user_assets_api(
     user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 ):
@@ -171,7 +171,7 @@ async def get_user_assets_api(
     # TODO: Get user_id from current session after implementing
     # authenticte with passed user_id
 
-    user = await db.get(models.User, user_id)
+    user = await db.get(models.Users, user_id)
 
     if not user:
         raise HTTPException(
@@ -180,25 +180,25 @@ async def get_user_assets_api(
         )
 
     result = await db.execute(
-        select(models.Asset)
-        .options(selectinload(models.Asset.transactions))
-        .where(models.Asset.user_id == user_id)
+        select(models.Holdings)
+        .options(selectinload(models.Holdings.transactions))
+        .where(models.Holdings.user_id == user_id)
     )
-    assets = result.scalars().all()
-    return assets
+    holdings = result.scalars().all()
+    return holdings
 
 
-# Create asset for user
-@router.post("/{user_id}/assets", response_model=ResponseAsset)
-async def create_user_assets_api(
+# Create holding for user
+@router.post("/{user_id}/holdings", response_model=ResponseHoldings)
+async def create_user_holdings_api(
     user_id: int,
-    create_asset: CreateAsset,
+    create_holding: CreateHoldings,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
 
     # TODO: Get user_id from current session after implementing authenticte with passed user_id
 
-    user = await db.get(models.User, user_id)
+    user = await db.get(models.Users, user_id)
 
     if not user:
         raise HTTPException(
@@ -206,31 +206,31 @@ async def create_user_assets_api(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    new_asset = models.Asset(
-        instrument=create_asset.instrument,
-        total_units=create_asset.total_units,
-        average_rate=create_asset.average_rate,
+    new_holding = models.Holdings(
+        instrument_id=create_holding.instrument_id,
+        quantity=create_holding.quantity,
+        average_rate=create_holding.average_rate,
         user_id=user.id,
     )
-    db.add(new_asset)
+    db.add(new_holding)
     await db.commit()
-    await db.refresh(new_asset, attribute_names=["transactions"])
+    await db.refresh(new_holding, attribute_names=["transactions"])
 
-    return new_asset
+    return new_holding
 
 
-# Patch user's asset
-@router.patch("/{user_id}/assets/{asset_id}", response_model=ResponseAsset)
-async def patch_user_assets_api(
+# Patch user's holding
+@router.patch("/{user_id}/holdings/{holding_id}", response_model=ResponseHoldings)
+async def patch_user_holdings_api(
     user_id: int,
-    asset_id: int,
-    asset_update_data: PatchAsset,
+    holding_id: int,
+    holding_update_data: PatchHoldings,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
 
     # TODO: Get user_id from current session after implementing authenticte with passed user_id
 
-    user = await db.get(models.User, user_id)
+    user = await db.get(models.Users, user_id)
 
     if not user:
         raise HTTPException(
@@ -238,39 +238,32 @@ async def patch_user_assets_api(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
-    asset = await db.get(models.Asset, asset_id)
+    holding = await db.get(models.Holdings, (user_id, holding_id))
 
-    if not asset or asset.user_id != user_id:
+    if not holding or holding.user_id != user_id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Asset not found",
+            detail="Holding not found",
         )
 
-    if asset_update_data.id != asset_id or asset_update_data.user_id != user_id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Path and payload user/asset ids must match",
-        )
-
-    update_data = asset_update_data.model_dump(exclude_unset=True)
+    update_data = holding_update_data.model_dump(exclude_unset=True)
     if any(
         field in update_data for field in ("instrument", "total_units", "average_rate")
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Asset holdings are derived from transactions. Patch transactions instead.",
+            detail="Holding holdings are derived from transactions. "
+            "Patch transactions instead.",
         )
 
-    refreshed_asset = await _recalculate_asset_from_transactions(
-        db, user_id, asset.instrument
-    )
-    if refreshed_asset is None:
+    refreshed_holding = await update_user_holdings(db, user_id, holding.instrument_id)
+    if refreshed_holding is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Asset not found",
+            detail="Holding not found",
         )
 
     await db.commit()
-    await db.refresh(refreshed_asset)
+    await db.refresh(refreshed_holding)
 
-    return refreshed_asset
+    return refreshed_holding

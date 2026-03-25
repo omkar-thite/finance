@@ -23,7 +23,7 @@ def home_page(request: Request):
 async def user_home_page(
     request: Request, user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    result = await db.execute(select(models.User).where(models.User.id == user_id))
+    result = await db.execute(select(models.Users).where(models.Users.id == user_id))
     user = result.scalars().first()
 
     if not user:
@@ -33,7 +33,7 @@ async def user_home_page(
         )
 
     result = await db.execute(
-        select(models.Transaction).where(models.Transaction.user_id == user_id)
+        select(models.Transactions).where(models.Transactions.user_id == user_id)
     )
     transactions = result.scalars().all()
 
@@ -49,7 +49,7 @@ async def user_home_page(
 async def all_transactions_page(
     request: Request, db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    result = await db.execute(select(models.Transaction))
+    result = await db.execute(select(models.Transactions))
     transactions = result.scalars().all()
     return request.app.state.templates.TemplateResponse(
         request, name="transactions.html", context={"transactions": transactions}
@@ -64,7 +64,7 @@ async def user_transactions_page(
     request: Request, user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 ):
 
-    result = await db.execute(select(models.User).where(models.User.id == user_id))
+    result = await db.execute(select(models.Users).where(models.Users.id == user_id))
     user = result.scalars().first()
 
     if not user:
@@ -73,7 +73,7 @@ async def user_transactions_page(
             detail=ErrorMessages.User.NOT_FOUND,
         )
     result = await db.execute(
-        select(models.Transaction).where(models.Transaction.user_id == user_id)
+        select(models.Transactions).where(models.Transactions.user_id == user_id)
     )
     transactions = result.scalars().all()
 
