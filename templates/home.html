@@ -2,19 +2,24 @@
 
 {% set title = 'Home' %}
 
-{% block navbar_actions %}
-    <button class="btn-auth">Login</button>
-    <button class="btn-auth">Register</button>
-    <span class="navbar-divider"></span>
-{% endblock %}
-
 {% block content %}
-<div class="home-container">
-    <div >
-        <div class="welcome-text">
-            <h1>Welcome to Portfolio Manager</h1>
-            <p class="subtitle">Secure, offline-first asset management system.</p>
-            <div class="welcome-divider"></div>
+<div class="dashboard-layout">
+    <aside class="dashboard-sidebar" id="home-sidebar-links" hidden>
+        <div class="sidebar-title">Quick Actions</div>
+        <a class="sidebar-link" id="home-sidebar-home-link" href="{{ url_for('home') }}">Home</a>
+        <a class="sidebar-link" id="home-sidebar-dashboard-link" href="#">Dashboard</a>
+        <a class="sidebar-link" id="home-sidebar-transaction-link" href="#">Add Transaction</a>
+        <a class="sidebar-link" id="home-sidebar-asset-link" href="#">Add Asset</a>
+    </aside>
+
+    <div class="home-container home-message-panel">
+        <div>
+            <div class="welcome-text">
+                <h1>Welcome to Portfolio Manager</h1>
+                <p class="subtitle">Secure, offline-first asset management system.</p>
+                <p class="subtitle home-user-welcome" id="home-user-welcome" hidden></p>
+                <div class="welcome-divider"></div>
+            </div>
         </div>
     </div>
 </div>

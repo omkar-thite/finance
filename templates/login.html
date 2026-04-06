@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+
+{% set title = 'Login' %}
+
+{% block content %}
+<div class="auth-page">
+	<section class="auth-intro">
+		<p class="auth-eyebrow">Secure access</p>
+		<h1>Sign in to Portfolio Manager</h1>
+		<p class="auth-copy">
+			Resume tracking your holdings, review transactions, and keep the dashboard in sync across devices.
+		</p>
+
+		<div class="auth-highlights">
+			<div class="auth-highlight-card">
+				<span class="auth-highlight-number">01</span>
+				<p>Private portfolio data stays tied to your account</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="auth-panel">
+		<div class="auth-panel-header">
+			<h2>Welcome back</h2>
+			<p>Use the email and password linked to your account.</p>
+		</div>
+
+		<form id="login-form" class="auth-form" novalidate>
+			<div id="login-form-message" class="auth-message" role="status" aria-live="polite"></div>
+
+			<label class="auth-field" for="login-email">
+				<span>Email</span>
+				<input id="login-email" name="username" type="email" autocomplete="email" required>
+			</label>
+
+			<label class="auth-field" for="login-password">
+				<span>Password</span>
+				<input id="login-password" name="password" type="password" autocomplete="current-password" required>
+			</label>
+
+			<button class="auth-submit" type="submit">Sign in</button>
+		</form>
+
+		<p class="auth-switch">
+			New to the app? <a href="{{ url_for('register_page') }}">Create an account</a>
+		</p>
+	</section>
+</div>
+
+<script src="{{ url_for('static', path='js/auth_forms.js') }}?v=20260405-1"></script>
+{% endblock content %}

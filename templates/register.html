@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+
+{% set title = 'Register' %}
+
+{% block content %}
+<div class="auth-page auth-page-register">
+	<section class="auth-intro">
+		<p class="auth-eyebrow">Create your account</p>
+		<h1>Start managing your portfolio</h1>
+		<p class="auth-copy">
+			Add your profile details once, then sign in to keep transactions and holdings organized from one place.
+		</p>
+
+		<div class="auth-highlights">
+			<div class="auth-highlight-card">
+				<span class="auth-highlight-number">01</span>
+				<p>Profile setup takes less than a minute</p>
+			</div>
+			<div class="auth-highlight-card">
+				<span class="auth-highlight-number">02</span>
+				<p>Password-backed login keeps access private</p>
+			</div>
+		</div>
+	</section>
+
+	<section class="auth-panel">
+		<div class="auth-panel-header">
+			<h2>Create account</h2>
+			<p>Fields marked required are needed to create and sign in to your account.</p>
+		</div>
+
+		<form id="register-form" class="auth-form" novalidate>
+			<div id="register-form-message" class="auth-message" role="status" aria-live="polite"></div>
+
+			<label class="auth-field" for="register-username">
+				<span>Username</span>
+				<input id="register-username" name="username" type="text" autocomplete="username" minlength="3" required>
+			</label>
+
+			<label class="auth-field" for="register-email">
+				<span>Email</span>
+				<input id="register-email" name="email" type="email" autocomplete="email" required>
+				<p id="register-email-hint" class="auth-field-hint" aria-live="polite"></p>
+			</label>
+
+			<label class="auth-field" for="register-phone">
+				<span>Phone number <span class="auth-field-optional">Optional</span></span>
+				<input id="register-phone" name="phone_no" type="tel" autocomplete="tel" placeholder="e.g. 9876543210">
+			</label>
+
+			<label class="auth-field" for="register-password">
+				<span>Password</span>
+				<input id="register-password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+			</label>
+
+			<label class="auth-field" for="register-confirm-password">
+				<span>Confirm password</span>
+				<input id="register-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+				<p id="register-password-match" class="auth-field-hint" aria-live="polite"></p>
+			</label>
+
+			<button class="auth-submit" type="submit">Create account</button>
+		</form>
+
+		<p class="auth-switch">
+			Already have an account? <a href="{{ url_for('login_page') }}">Sign in</a>
+		</p>
+	</section>
+</div>
+
+<script src="{{ url_for('static', path='js/auth_forms.js') }}?v=20260406-1"></script>
+{% endblock content %}

@@ -86,6 +86,7 @@ async def created_user(client):
         json={
             "username": "asset_user",
             "email": "asset_user@example.com",
+            "password": "asset-user-secret",
             "image_file_name": "",
         },
     )

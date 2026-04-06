@@ -82,7 +82,12 @@ async def client() -> AsyncGenerator[AsyncClient, None]:
 async def created_user(client):
     response = await client.post(
         "/api/users/",
-        json={"username": "alice", "email": "alice@example.com", "image_path": ""},
+        json={
+            "username": "alice",
+            "email": "alice@example.com",
+            "password": "alice-secret",
+            "image_path": "",
+        },
     )
     assert response.status_code == 201
 
@@ -114,7 +119,12 @@ async def created_transaction(client, created_user, instrument_aapl):
 async def another_user(client):
     response = await client.post(
         "/api/users/",
-        json={"username": "charlie", "email": "charlie@example.com", "image_path": ""},
+        json={
+            "username": "charlie",
+            "email": "charlie@example.com",
+            "password": "charlie-secret",
+            "image_path": "",
+        },
     )
     assert response.status_code == 201
     return response.json()
@@ -191,7 +201,12 @@ class TestCreateUser:
     async def test_success(self, client):
         resp = await client.post(
             "/api/users/",
-            json={"username": "bob", "email": "bob@example.com", "image_path": ""},
+            json={
+                "username": "bob",
+                "email": "bob@example.com",
+                "password": "bob-secret",
+                "image_path": "",
+            },
         )
         assert resp.status_code == 201
         data = resp.json()
@@ -201,7 +216,12 @@ class TestCreateUser:
     async def test_duplicate_username(self, client, created_user):
         resp = await client.post(
             "/api/users/",
-            json={"username": "alice", "email": "other@example.com", "image_path": ""},
+            json={
+                "username": "alice",
+                "email": "other@example.com",
+                "password": "other-secret",
+                "image_path": "",
+            },
         )
         assert resp.status_code == 400
         assert "Username already exists" in resp.json()["detail"]
@@ -209,10 +229,72 @@ class TestCreateUser:
     async def test_duplicate_email(self, client, created_user):
         resp = await client.post(
             "/api/users/",
-            json={"username": "other", "email": "alice@example.com", "image_path": ""},
+            json={
+                "username": "other",
+                "email": "alice@example.com",
+                "password": "other-secret",
+                "image_path": "",
+            },
         )
         assert resp.status_code == 400
         assert "email/phone already exists" in resp.json()["detail"]
+
+    async def test_missing_password_returns_422(self, client):
+        resp = await client.post(
+            "/api/users/",
+            json={"username": "bob", "email": "bob@example.com", "image_path": ""},
+        )
+
+        assert resp.status_code == 422
+
+
+class TestAuthentication:
+    async def test_login_returns_bearer_token(self, client, created_user):
+        resp = await client.post(
+            "/api/users/token",
+            data={"username": "alice@example.com", "password": "alice-secret"},
+        )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert "access_token" in body
+        assert body["token_type"] == "bearer"
+
+    async def test_login_rejects_invalid_password(self, client, created_user):
+        resp = await client.post(
+            "/api/users/token",
+            data={"username": "alice@example.com", "password": "wrong-password"},
+        )
+
+        assert resp.status_code == 401
+        assert resp.json() == {"detail": "Incorrect email or password"}
+
+    async def test_me_returns_current_user_when_token_is_valid(
+        self, client, created_user
+    ):
+        login_resp = await client.post(
+            "/api/users/token",
+            data={"username": "alice@example.com", "password": "alice-secret"},
+        )
+        token = login_resp.json()["access_token"]
+
+        me_resp = await client.get(
+            "/api/users/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        assert me_resp.status_code == 200
+        body = me_resp.json()
+        assert body["id"] == created_user["id"]
+        assert body["username"] == created_user["username"]
+
+    async def test_me_rejects_invalid_token(self, client):
+        resp = await client.get(
+            "/api/users/me",
+            headers={"Authorization": "Bearer not-a-real-token"},
+        )
+
+        assert resp.status_code == 401
 
 
 class TestGetAllUsers:

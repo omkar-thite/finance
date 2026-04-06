@@ -1,6 +1,16 @@
 {% extends 'layout.html' %}
 
 {% block content %}
+<div class="dashboard-layout">
+    <aside class="dashboard-sidebar" id="transactions-sidebar-links" hidden>
+        <div class="sidebar-title">Quick Actions</div>
+        <a class="sidebar-link" id="transactions-sidebar-home-link" href="{{ url_for('home') }}">Home</a>
+        <a class="sidebar-link" id="transactions-sidebar-dashboard-link" href="#">Dashboard</a>
+        <a class="sidebar-link" id="transactions-sidebar-transaction-link" href="#">Add Transaction</a>
+        <a class="sidebar-link" id="transactions-sidebar-asset-link" href="#">Add Asset</a>
+    </aside>
+
+    <div class="user-home-container">
     <h1>Transactions</h1>
     <p>Here you can view and manage your financial transactions.</p>
 
@@ -56,4 +66,6 @@
             </tbody>
         </table>
     </div>
+    </div>
+</div>
 {% endblock content %}

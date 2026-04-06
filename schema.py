@@ -35,26 +35,31 @@ class PatchTrx(BaseModel):
     date_created: date | None = None
 
 
-class UserBase(BaseModel):
+class UserPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
     username: str
 
 
-class UserContact(UserBase):
-    email: EmailStr
+class UserPrivate(UserPublic):
+    email: EmailStr | None = None
     phone_no: str | None = None
+    image_path: str | None = None
 
 
-class CreateUser(UserContact):
+class CreateUser(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    phone_no: str | None = None
+    image_path: str | None = None
     image_file_name: str | None = None
-    pass
 
 
-class ResponseUser(UserBase):
-    id: int
-    pass
+class PatchUser(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-
-class PatchUser(UserBase):
     user_id: int  # Remove this after auth implementation
     username: str
     email: EmailStr
@@ -70,7 +75,6 @@ class BaseHoldings(BaseModel):
 
 class CreateHoldings(BaseHoldings):
     user_id: int
-    pass
 
 
 class ResponseHoldings(BaseHoldings):
@@ -104,3 +108,8 @@ class PatchInstrument(BaseModel):
     type: InstrumentType | None = None
     symbol: str | None = None
     name: str | None = None
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str

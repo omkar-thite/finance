@@ -61,8 +61,10 @@ class UserContact(Base):
         ForeignKey("users.id"), primary_key=True, nullable=False, index=True
     )
     email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
-    country_code: Mapped[str] = mapped_column(String(3), default=None, nullable=True)
-    phone_no: Mapped[str] = mapped_column(
+    country_code: Mapped[str | None] = mapped_column(
+        String(3), default=None, nullable=True
+    )
+    phone_no: Mapped[str | None] = mapped_column(
         String(12), default=None, unique=True, nullable=True
     )
     user: Mapped[Users] = relationship(back_populates="contact")
@@ -74,7 +76,6 @@ class UserAuth(Base):
         ForeignKey("users.id"), primary_key=True, nullable=False, index=True
     )
     password_hash: Mapped[str] = mapped_column(String(250), unique=True, nullable=False)
-    pin_hash: Mapped[str] = mapped_column(String(250), nullable=True, default=None)
     user: Mapped[Users] = relationship(back_populates="auth")
 
 

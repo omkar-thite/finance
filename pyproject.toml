@@ -9,6 +9,9 @@ dependencies = [
     "sqlalchemy>=2.0.48",
     "pydantic[email]==2.12.5",
     "aiosqlite>=0.22.1",
+    "pwdlib[argon2]>=0.3.0",
+    "pydantic-settings>=2.13.1",
+    "pyjwt>=2.12.1",
 ]
 
 [project.optional-dependencies]

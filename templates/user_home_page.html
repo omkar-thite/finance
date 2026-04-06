@@ -2,12 +2,6 @@
 
 {% set title = (user.username ~ "'s Dashboard") if user else 'Dashboard' %}
 
-{% block navbar_actions %}
-    <a class="btn-auth" href="#">Profile</a>
-    <a class="btn-auth" href="#">Settings</a>
-    <span class="navbar-divider"></span>
-{% endblock %}
-
 {% block content %}
 
 {# Compute summary totals #}
@@ -22,6 +16,15 @@
     {% endfor %}
 {% endif %}
 {% set net_position = ns.buy_total - ns.sell_total %}
+
+<div class="dashboard-layout">
+    <aside class="dashboard-sidebar" id="dashboard-sidebar-auth">
+        <div class="sidebar-title">Quick Actions</div>
+        <a class="sidebar-link" href="{{ url_for('home') }}">Home</a>
+        <a class="sidebar-link" href="{{ url_for('user_home_page', user_id=user.id) }}">Dashboard</a>
+        <a class="sidebar-link" href="{{ url_for('user_transactions', user_id=user.id) }}">Add Transaction</a>
+        <a class="sidebar-link" href="{{ url_for('user_assets', user_id=user.id) }}">Add Asset</a>
+    </aside>
 
 <div class="user-home-container">
 
@@ -72,7 +75,7 @@
             <div class="link-icon">&#128200;</div>
             <div class="link-label">Transactions</div>
         </a>
-        <a href="/assets" class="link-card">
+        <a href="{{ url_for('user_assets', user_id=user.id) }}" class="link-card">
             <div class="link-icon">&#128181;</div>
             <div class="link-label">Assets</div>
         </a>
@@ -132,6 +135,7 @@
     </div>
     {% endif %}
 
+</div>
 </div>
 
 {% endblock content %}

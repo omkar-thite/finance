@@ -4,6 +4,7 @@ from fastapi import APIRouter, Request, status, Depends
 from fastapi.exceptions import HTTPException
 
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import models
@@ -16,6 +17,16 @@ router = APIRouter()
 @router.get("/", name="home", include_in_schema=False)
 def home_page(request: Request):
     return request.app.state.templates.TemplateResponse(request, name="home.html")
+
+
+@router.get("/login", name="login_page", include_in_schema=False)
+def login_page(request: Request):
+    return request.app.state.templates.TemplateResponse(request, name="login.html")
+
+
+@router.get("/register", name="register_page", include_in_schema=False)
+def register_page(request: Request):
+    return request.app.state.templates.TemplateResponse(request, name="register.html")
 
 
 # User home page
@@ -45,7 +56,7 @@ async def user_home_page(
 
 
 # All transactions
-@router.get("/transactions/", include_in_schema=False)
+@router.get("/transactions/", include_in_schema=False, name="all_transactions_page")
 async def all_transactions_page(
     request: Request, db: Annotated[AsyncSession, Depends(get_db)]
 ):
@@ -79,4 +90,33 @@ async def user_transactions_page(
 
     return request.app.state.templates.TemplateResponse(
         request, name="transactions.html", context={"transactions": transactions}
+    )
+
+
+# User assets page
+@router.get("/users/{user_id}/assets", include_in_schema=False, name="user_assets")
+async def user_assets_page(
+    request: Request, user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
+):
+
+    result = await db.execute(select(models.Users).where(models.Users.id == user_id))
+    user = result.scalars().first()
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=ErrorMessages.User.NOT_FOUND,
+        )
+
+    result = await db.execute(
+        select(models.Holdings)
+        .options(selectinload(models.Holdings.transactions))
+        .where(models.Holdings.user_id == user_id)
+    )
+    assets = result.scalars().all()
+
+    return request.app.state.templates.TemplateResponse(
+        request,
+        name="assets.html",
+        context={"user": user, "assets": assets},
     )

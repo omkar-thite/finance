@@ -25,13 +25,19 @@
 <div class="navbar" id="navbar">
     <div class="header">
         <div class="header-brand">
-            <a href="{{ url_for('home') }}">Portfolio Manager</a>
+            <a id="navbar-brand-link" href="{{ url_for('home') }}">Portfolio Manager</a>
             {% if title and title != 'Home' %}
                 <span class="navbar-page-name"> {{ title }}</span>
             {% endif %}
         </div>
         <div class="navbar-actions">
-            {% block navbar_actions %}{% endblock %}
+            <div class="navbar-auth-section" id="navbar-logged-in" hidden>
+                <button class="btn-auth" id="logout-button" type="button">Logout</button>
+            </div>
+            <div class="navbar-auth-section" id="navbar-logged-out">
+                <a class="btn-auth" href="{{ url_for('login_page') }}">Login</a>
+                <a class="btn-auth" href="{{ url_for('register_page') }}">Register</a>
+            </div>
             <button id="theme-toggle" aria-label="Toggle dark mode">&#9790;</button>
         </div>
     </div>
@@ -48,6 +54,8 @@
     </footer>
 
 </div>
+
+<script src="{{ url_for('static', path='js/auth.js') }}"></script>
 
 </body>
 </html>

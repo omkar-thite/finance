@@ -1,18 +1,47 @@
-<div id="viewAssets" class="view-section">
-        <div class="table-container">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Asset Name</th>
-                        <th>% Port.</th>
-                        <th>Net Units</th>
-                        <th>Avg. Buy (Net)</th>
-                        <th>Realized P/L</th>
-                        <th>Invested (Pure)</th>
-                    </tr>
-                </thead>
-                <tbody id="assetsBody"></tbody>
-            </table>
-        </div>
-        <div class="summary">Total Investment: ₹ <span id="totalPortfolio">0</span></div>
+{% extends 'layout.html' %}
+
+{% set title = (user.username ~ "'s Assets") if user else 'Assets' %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <aside class="dashboard-sidebar" id="assets-sidebar-links" hidden>
+        <div class="sidebar-title">Quick Actions</div>
+        <a class="sidebar-link" id="assets-sidebar-home-link" href="{{ url_for('home') }}">Home</a>
+        <a class="sidebar-link" id="assets-sidebar-dashboard-link" href="#">Dashboard</a>
+        <a class="sidebar-link" id="assets-sidebar-transaction-link" href="#">Add Transaction</a>
+        <a class="sidebar-link" id="assets-sidebar-asset-link" href="#">Add Asset</a>
+    </aside>
+
+    <div class="user-home-container">
+    <h1>Assets</h1>
+    <p>Current holdings and average cost for your portfolio.</p>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Instrument ID</th>
+                    <th>Quantity</th>
+                    <th>Average Rate</th>
+                    <th>Invested Amount</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asset in assets %}
+                <tr>
+                    <td>{{ asset.instrument_id }}</td>
+                    <td>{{ asset.quantity }}</td>
+                    <td>{{ "%.2f"|format(asset.average_rate) }}</td>
+                    <td>{{ "%.2f"|format(asset.quantity * asset.average_rate) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4" style="text-align: center; color: var(--muted);">No assets found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
+    </div>
+</div>
+{% endblock content %}
