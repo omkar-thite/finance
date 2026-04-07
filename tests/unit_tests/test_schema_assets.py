@@ -14,7 +14,6 @@ pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
 class _HoldingsSource:
     def __init__(self):
         self.instrument_id = 10
-        self.user_id = 2
         self.quantity = 12
         self.average_rate = "123.4500"
 
@@ -24,7 +23,6 @@ async def test_create_holdings_parses_payload_when_fields_are_valid():
         "instrument_id": 10,
         "quantity": 12,
         "average_rate": "123.4500",
-        "user_id": 2,
     }
 
     parsed = CreateHoldings.model_validate(payload)
@@ -32,7 +30,6 @@ async def test_create_holdings_parses_payload_when_fields_are_valid():
     assert parsed.instrument_id == 10
     assert parsed.quantity == 12
     assert str(parsed.average_rate) == "123.4500"
-    assert parsed.user_id == 2
 
 
 async def test_create_holdings_raises_validation_error_when_required_field_is_missing():
@@ -44,7 +41,7 @@ async def test_create_holdings_raises_validation_error_when_required_field_is_mi
     with pytest.raises(ValidationError) as exc_info:
         CreateHoldings.model_validate(payload)
 
-    assert "user_id" in str(exc_info.value)
+    assert "average_rate" in str(exc_info.value)
 
 
 async def test_patch_holdings_parses_payload_when_supported_fields_are_provided():

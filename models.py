@@ -54,6 +54,18 @@ class Users(Base):
             return f"media/profile_pics/{self.image_file_name}"
         return None
 
+    @property
+    def email(self) -> str | None:
+        if self.contact:
+            return self.contact.email
+        return None
+
+    @property
+    def phone_no(self) -> str | None:
+        if self.contact:
+            return self.contact.phone_no
+        return None
+
 
 class UserContact(Base):
     __tablename__ = "users_contact"

@@ -43,6 +43,8 @@ class UserPublic(BaseModel):
 
 
 class UserPrivate(UserPublic):
+    model_config = ConfigDict(from_attributes=True)
+
     email: EmailStr | None = None
     phone_no: str | None = None
     image_path: str | None = None
@@ -74,7 +76,7 @@ class BaseHoldings(BaseModel):
 
 
 class CreateHoldings(BaseHoldings):
-    user_id: int
+    pass
 
 
 class ResponseHoldings(BaseHoldings):

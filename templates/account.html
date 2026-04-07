@@ -1,0 +1,99 @@
+{% extends 'layout.html' %}
+
+{% set title = 'Account' %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <aside class="dashboard-sidebar" id="account-sidebar-links" hidden>
+        <div class="sidebar-title">Quick Actions</div>
+        <a class="sidebar-link" id="account-sidebar-home-link" href="{{ url_for('home') }}">Home</a>
+        <a class="sidebar-link" id="account-sidebar-dashboard-link" href="#">Dashboard</a>
+        <a class="sidebar-link" id="account-sidebar-transaction-link" href="#">Add Transaction</a>
+        <a class="sidebar-link" id="account-sidebar-asset-link" href="#">Add Asset</a>
+        <a class="sidebar-link" id="account-sidebar-account-link" href="{{ url_for('account_page') }}">Account</a>
+    </aside>
+
+    <div class="user-home-container">
+        <h1>Account</h1>
+
+        <section class="account-panel">
+            <div class="profile-card account-profile-card">
+                <div class="profile-avatar-wrap">
+                    <img id="account-avatar-image" src="" alt="Profile picture" class="avatar-img" hidden>
+                    <div id="account-avatar-fallback" class="avatar-placeholder">
+                        <span id="account-avatar-initial">U</span>
+                    </div>
+                </div>
+                <div class="profile-details">
+                    <p class="greeting-text">Signed in as</p>
+                    <h2 class="profile-username" id="account-display-username">User</h2>
+                    <p class="profile-email" id="account-display-email"></p>
+                </div>
+            </div>
+
+            <form id="account-form" class="manage-form account-form" novalidate>
+                <h2>Profile Details</h2>
+                <label>
+                    <span>Username</span>
+                    <input id="account-username" name="username" type="text" minlength="3" required>
+                </label>
+                <label>
+                    <span>Email</span>
+                    <input id="account-email" name="email" type="email" required>
+                </label>
+                <label>
+                    <span>Profile Picture</span>
+                </label>
+                <div class="upload-placeholder">
+                    <p id="account-image-file-name" class="auth-field-hint">Upload coming soon. Current profile image is shown above.</p>
+                    <button type="button" class="btn-auth btn-neutral" disabled>Coming soon</button>
+                </div>
+
+                <div class="account-form-actions">
+                    <button type="submit" class="btn-auth btn-neutral">Save Changes</button>
+                    <button id="account-logout-button" type="button" class="btn-auth btn-neutral">Logout</button>
+                </div>
+            </form>
+
+            <section class="account-reset-section">
+                <h2>Reset Password</h2>
+                <p>This section is UI-only for now. Password reset flow will be enabled in a backend follow-up.</p>
+                <div class="manage-form reset-password-form">
+                    <label>
+                        <span>Current Password</span>
+                        <input type="password" autocomplete="current-password" disabled>
+                    </label>
+                    <label>
+                        <span>New Password</span>
+                        <input type="password" autocomplete="new-password" disabled>
+                    </label>
+                    <label>
+                        <span>Confirm New Password</span>
+                        <input type="password" autocomplete="new-password" disabled>
+                    </label>
+                    <button type="button" class="btn-auth manage-submit" disabled>Coming Soon</button>
+                </div>
+            </section>
+
+            <section class="account-danger-zone">
+                <h2>Danger Zone</h2>
+                <p>This action permanently removes your account and cannot be undone.</p>
+                <button id="delete-account-button" type="button" class="btn-auth btn-danger">Delete Account</button>
+            </section>
+        </section>
+    </div>
+</div>
+
+<div class="app-modal" id="app-modal" hidden>
+    <div class="app-modal-backdrop" data-modal-close></div>
+    <div class="app-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="app-modal-title">
+        <h3 id="app-modal-title"></h3>
+        <p id="app-modal-message"></p>
+        <div class="app-modal-actions" id="app-modal-actions"></div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block page_scripts %}
+<script src="{{ url_for('static', path='js/account.js') }}?v=20260407-1"></script>
+{% endblock page_scripts %}

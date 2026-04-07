@@ -95,6 +95,46 @@ async def created_user(client):
 
 
 @pytest_asyncio.fixture
+async def another_user(client):
+    response = await client.post(
+        "/api/users/",
+        json={
+            "username": "asset_user_two",
+            "email": "asset_user_two@example.com",
+            "password": "asset-user-two-secret",
+            "image_file_name": "",
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
+@pytest_asyncio.fixture
+async def created_user_auth_headers(client, created_user):
+    login_resp = await client.post(
+        "/api/users/token",
+        data={"username": "asset_user@example.com", "password": "asset-user-secret"},
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def another_user_auth_headers(client, another_user):
+    login_resp = await client.post(
+        "/api/users/token",
+        data={
+            "username": "asset_user_two@example.com",
+            "password": "asset-user-two-secret",
+        },
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
 async def created_instrument(db_session):
     instrument = models.Instruments(symbol="AAPL", type="equity", name="Apple Inc")
     db_session.add(instrument)
@@ -128,6 +168,19 @@ async def created_buy_transaction(client, buy_transaction_payload):
     return response.json()
 
 
+@pytest_asyncio.fixture
+async def created_holding(db_session, created_user, created_instrument):
+    holding = models.Holdings(
+        user_id=created_user["id"],
+        instrument_id=created_instrument.id,
+        quantity=10,
+        average_rate=Decimal("100.0000"),
+    )
+    db_session.add(holding)
+    await db_session.flush()
+    return holding
+
+
 async def _get_user_holdings(client: AsyncClient, user_id: int) -> list[dict]:
     response = await client.get(f"/api/users/{user_id}/holdings")
     assert response.status_code == 200
@@ -148,7 +201,11 @@ async def test_create_transaction_returns_201_when_payload_is_valid(
 
 
 async def test_patch_transaction_updates_instrument_id_when_instrument_changes(
-    client, created_user, created_buy_transaction, second_instrument
+    client,
+    created_user,
+    created_buy_transaction,
+    second_instrument,
+    created_user_auth_headers,
 ):
     patch_payload = {
         "id": 1,
@@ -159,7 +216,9 @@ async def test_patch_transaction_updates_instrument_id_when_instrument_changes(
         "rate": 100.0,
     }
 
-    response = await client.patch("/api/transactions/", json=patch_payload)
+    response = await client.patch(
+        "/api/transactions/", json=patch_payload, headers=created_user_auth_headers
+    )
 
     assert response.status_code == 200
     patched = response.json()
@@ -167,7 +226,7 @@ async def test_patch_transaction_updates_instrument_id_when_instrument_changes(
 
 
 async def test_patch_transaction_updates_units_when_payload_contains_units(
-    client, created_user, created_buy_transaction
+    client, created_user, created_buy_transaction, created_user_auth_headers
 ):
     patch_payload = {
         "id": 1,
@@ -175,7 +234,9 @@ async def test_patch_transaction_updates_units_when_payload_contains_units(
         "units": 25,
     }
 
-    response = await client.patch("/api/transactions/", json=patch_payload)
+    response = await client.patch(
+        "/api/transactions/", json=patch_payload, headers=created_user_auth_headers
+    )
 
     assert response.status_code == 200
     patched = response.json()
@@ -183,19 +244,76 @@ async def test_patch_transaction_updates_units_when_payload_contains_units(
 
 
 async def test_get_user_holdings_returns_empty_list_when_user_has_no_holdings(
-    client, created_user
+    client, created_user, created_user_auth_headers
 ):
-    response = await client.get(f"/api/users/{created_user['id']}/holdings")
+    response = await client.get(
+        f"/api/users/{created_user['id']}/holdings", headers=created_user_auth_headers
+    )
 
     assert response.status_code == 200
     assert response.json() == []
 
 
-async def test_get_user_holdings_returns_404_when_user_does_not_exist(client):
-    response = await client.get("/api/users/9999/holdings")
+async def test_get_user_holdings_returns_403_when_user_requests_other_users_holdings(
+    client, created_user, another_user, created_user_auth_headers
+):
+    response = await client.get(
+        f"/api/users/{another_user['id']}/holdings", headers=created_user_auth_headers
+    )
 
-    assert response.status_code == 404
-    assert response.json() == {"detail": "User not found"}
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Not authorized to access this user's holdings"
+    }
+
+
+async def test_patch_user_holdings_returns_403_when_user_patches_other_users_holding(
+    client,
+    created_user,
+    another_user,
+    created_holding,
+    another_user_auth_headers,
+):
+    response = await client.patch(
+        f"/api/users/{created_user['id']}/holdings/{created_holding.instrument_id}",
+        json={},
+        headers=another_user_auth_headers,
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Not authorized to update this user's holdings"
+    }
+
+
+async def test_patch_user_holdings_returns_401_when_auth_header_is_missing(
+    client, created_user, created_holding
+):
+    response = await client.patch(
+        f"/api/users/{created_user['id']}/holdings/{created_holding.instrument_id}",
+        json={},
+    )
+
+    assert response.status_code == 401
+
+
+async def test_get_user_holdings_returns_401_when_auth_header_is_missing(client):
+    response = await client.get("/api/users/1/holdings")
+
+    assert response.status_code == 401
+
+
+async def test_get_user_holdings_returns_404_when_user_does_not_exist(
+    client, created_user_auth_headers
+):
+    response = await client.get(
+        "/api/users/9999/holdings", headers=created_user_auth_headers
+    )
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "detail": "Not authorized to access this user's holdings"
+    }
 
 
 async def test_update_user_holdings_raises_400_when_sell_units_exceed_available_units():

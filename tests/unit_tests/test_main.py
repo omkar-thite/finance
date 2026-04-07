@@ -147,6 +147,28 @@ async def another_transaction(client, another_user, instrument_msft):
 
 
 @pytest_asyncio.fixture
+async def created_user_auth_headers(client, created_user):
+    login_resp = await client.post(
+        "/api/users/token",
+        data={"username": "alice@example.com", "password": "alice-secret"},
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
+async def another_user_auth_headers(client, another_user):
+    login_resp = await client.post(
+        "/api/users/token",
+        data={"username": "charlie@example.com", "password": "charlie-secret"},
+    )
+    assert login_resp.status_code == 200
+    token = login_resp.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest_asyncio.fixture
 async def instrument_tsla(db_session):
     instrument = models.Instruments(symbol="TSLA", type="equity", name="Tesla")
     db_session.add(instrument)
@@ -310,21 +332,28 @@ class TestGetAllUsers:
 class TestGetUserById:
     @pytest.mark.unit
     async def test_get_user_by_id_returns_200_when_user_exists(
-        self, client, created_user
+        self, client, created_user, created_user_auth_headers
     ):
-        response = await client.get(f"/api/users/{created_user['id']}")
+        response = await client.get(
+            f"/api/users/{created_user['id']}", headers=created_user_auth_headers
+        )
 
         assert response.status_code == 200
         assert response.json() == {
             "id": created_user["id"],
             "username": created_user["username"],
+            "email": created_user["email"],
+            "phone_no": created_user["phone_no"],
+            "image_path": created_user["image_path"],
         }
 
     @pytest.mark.unit
     async def test_get_user_by_id_returns_422_when_path_user_id_is_not_an_integer(
-        self, client
+        self, client, created_user_auth_headers
     ):
-        response = await client.get("/api/users/not-an-int")
+        response = await client.get(
+            "/api/users/not-an-int", headers=created_user_auth_headers
+        )
 
         assert response.status_code == 422
 
@@ -441,19 +470,32 @@ class TestGetAllTransactions:
 
 class TestGetUserTransactions:
     async def test_returns_transactions(
-        self, client, created_user, created_transaction
+        self, client, created_user, created_transaction, created_user_auth_headers
     ):
-        resp = await client.get(f"/api/users/{created_user['id']}/transactions/")
+        resp = await client.get(
+            f"/api/users/{created_user['id']}/transactions/",
+            headers=created_user_auth_headers,
+        )
         assert resp.status_code == 200
         assert resp.json()[0]["user_id"] == created_user["id"]
 
-    async def test_unknown_user(self, client):
-        response = await client.get("/api/users/9999/transactions/")
-        assert response.status_code == 404
-        assert "User not found" in response.json()["detail"]
+    async def test_unknown_user(self, client, created_user_auth_headers):
+        response = await client.get(
+            "/api/users/9999/transactions/", headers=created_user_auth_headers
+        )
+        assert response.status_code == 403
+        assert (
+            "Not authorized to access this user's transactions"
+            in response.json()["detail"]
+        )
 
-    async def test_empty_list_for_new_user(self, client, created_user):
-        resp = await client.get(f"/api/users/{created_user['id']}/transactions/")
+    async def test_empty_list_for_new_user(
+        self, client, created_user, created_user_auth_headers
+    ):
+        resp = await client.get(
+            f"/api/users/{created_user['id']}/transactions/",
+            headers=created_user_auth_headers,
+        )
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -461,7 +503,7 @@ class TestGetUserTransactions:
 class TestPatchUser:
     @pytest.mark.unit
     async def test_patch_user_returns_200_when_payload_is_valid(
-        self, client, created_user
+        self, client, created_user, created_user_auth_headers
     ):
         payload = {
             "user_id": created_user["id"],
@@ -471,42 +513,99 @@ class TestPatchUser:
             "image_file_name": "avatar.png",
         }
 
-        resp = await client.patch("/api/users/", json=payload)
+        resp = await client.patch(
+            "/api/users/", json=payload, headers=created_user_auth_headers
+        )
 
         assert resp.status_code == 200
-        assert resp.json() == {"id": created_user["id"], "username": "alice_updated"}
+        assert resp.json() == {
+            "id": created_user["id"],
+            "username": "alice_updated",
+            "email": "alice.updated@example.com",
+            "phone_no": "1234567890",
+            "image_path": "media/profile_pics/avatar.png",
+        }
 
     @pytest.mark.unit
-    async def test_patch_user_returns_404_when_user_does_not_exist(self, client):
+    async def test_patch_user_returns_403_when_user_tries_to_patch_another_user(
+        self, client, created_user, another_user, created_user_auth_headers
+    ):
         payload = {
-            "user_id": 9999,
+            "user_id": another_user["id"],
             "username": "ghost",
             "email": "ghost@example.com",
         }
 
-        resp = await client.patch("/api/users/", json=payload)
+        resp = await client.patch(
+            "/api/users/", json=payload, headers=created_user_auth_headers
+        )
 
-        assert resp.status_code == 404
-        assert resp.json() == {"detail": "User not found"}
+        assert resp.status_code == 403
+        assert resp.json() == {"detail": "Not authorized to update this user's data"}
 
     @pytest.mark.unit
     async def test_patch_user_returns_422_when_required_field_is_missing(
-        self, client, created_user
+        self, client, created_user, created_user_auth_headers
     ):
         payload = {
             "user_id": created_user["id"],
             "username": "alice_updated",
         }
 
-        resp = await client.patch("/api/users/", json=payload)
+        resp = await client.patch(
+            "/api/users/", json=payload, headers=created_user_auth_headers
+        )
 
         assert resp.status_code == 422
+
+    @pytest.mark.unit
+    async def test_patch_user_accepts_profile_picture_upload(
+        self, client, created_user, created_user_auth_headers
+    ):
+        response = await client.patch(
+            "/api/users/",
+            headers=created_user_auth_headers,
+            data={
+                "user_id": str(created_user["id"]),
+                "username": "alice_picture",
+                "email": "alice.picture@example.com",
+                "phone_no": "1234567890",
+            },
+            files={
+                "profile_image": (
+                    "avatar.png",
+                    b"fake-image-bytes",
+                    "image/png",
+                )
+            },
+        )
+
+        assert response.status_code == 422
+
+    @pytest.mark.unit
+    async def test_patch_user_returns_401_when_auth_header_is_missing(
+        self, client, created_user
+    ):
+        payload = {
+            "user_id": created_user["id"],
+            "username": "alice_updated",
+            "email": "alice.updated@example.com",
+        }
+
+        resp = await client.patch("/api/users/", json=payload)
+
+        assert resp.status_code == 401
 
 
 class TestDeleteUser:
     @pytest.mark.unit
-    async def test_delete_user_returns_204_when_user_exists(self, client, created_user):
-        resp = await client.delete(f"/api/users/?user_id={created_user['id']}")
+    async def test_delete_user_returns_204_when_user_exists(
+        self, client, created_user, created_user_auth_headers
+    ):
+        resp = await client.delete(
+            f"/api/users/?user_id={created_user['id']}",
+            headers=created_user_auth_headers,
+        )
 
         assert resp.status_code == 204
         assert resp.content == b""
@@ -516,17 +615,21 @@ class TestDeleteUser:
         assert all(u["id"] != created_user["id"] for u in users_resp.json())
 
     @pytest.mark.unit
-    async def test_delete_user_returns_404_when_user_does_not_exist(self, client):
-        resp = await client.delete("/api/users/?user_id=9999")
+    async def test_delete_user_returns_403_when_user_tries_to_delete_another_user(
+        self, client, created_user_auth_headers
+    ):
+        resp = await client.delete(
+            "/api/users/?user_id=9999", headers=created_user_auth_headers
+        )
 
-        assert resp.status_code == 404
-        assert resp.json() == {"detail": "User not found"}
+        assert resp.status_code == 403
+        assert resp.json() == {"detail": "Not authorized to delete this user"}
 
     @pytest.mark.unit
     async def test_delete_user_returns_422_when_user_id_query_param_is_missing(
-        self, client
+        self, client, created_user_auth_headers
     ):
-        resp = await client.delete("/api/users/")
+        resp = await client.delete("/api/users/", headers=created_user_auth_headers)
 
         assert resp.status_code == 422
 
@@ -534,7 +637,11 @@ class TestDeleteUser:
 class TestPatchTransaction:
     @pytest.mark.unit
     async def test_patch_transaction_returns_200_when_payload_is_valid(
-        self, client, created_transaction, instrument_nvda
+        self,
+        client,
+        created_transaction,
+        instrument_nvda,
+        created_user_auth_headers,
     ):
         payload = {
             "id": created_transaction["id"],
@@ -544,7 +651,9 @@ class TestPatchTransaction:
             "rate": 321.5,
         }
 
-        resp = await client.patch("/api/transactions/", json=payload)
+        resp = await client.patch(
+            "/api/transactions/", json=payload, headers=created_user_auth_headers
+        )
 
         assert resp.status_code == 200
         data = resp.json()
@@ -555,8 +664,12 @@ class TestPatchTransaction:
         assert data["rate"] == "321.5000"
 
     @pytest.mark.unit
-    async def test_patch_transaction_returns_404_when_user_does_not_exist(
-        self, client, created_transaction, instrument_nvda
+    async def test_patch_trx_returns_403_when_payload_user_id_not_match_authenticated_user(
+        self,
+        client,
+        created_transaction,
+        instrument_nvda,
+        created_user_auth_headers,
     ):
         payload = {
             "id": created_transaction["id"],
@@ -564,14 +677,18 @@ class TestPatchTransaction:
             "instrument_id": instrument_nvda.id,
         }
 
-        resp = await client.patch("/api/transactions/", json=payload)
+        resp = await client.patch(
+            "/api/transactions/", json=payload, headers=created_user_auth_headers
+        )
 
-        assert resp.status_code == 404
-        assert resp.json() == {"detail": "User not found"}
+        assert resp.status_code == 403
+        assert resp.json() == {
+            "detail": "Not authorized to update this user's transactions"
+        }
 
     @pytest.mark.unit
     async def test_patch_transaction_returns_404_when_transaction_does_not_exist(
-        self, client, created_user, instrument_nvda
+        self, client, created_user, instrument_nvda, created_user_auth_headers
     ):
         payload = {
             "id": 9999,
@@ -579,14 +696,20 @@ class TestPatchTransaction:
             "instrument_id": instrument_nvda.id,
         }
 
-        resp = await client.patch("/api/transactions/", json=payload)
+        resp = await client.patch(
+            "/api/transactions/", json=payload, headers=created_user_auth_headers
+        )
 
         assert resp.status_code == 404
         assert resp.json() == {"detail": "Transaction not found"}
 
     @pytest.mark.unit
     async def test_patch_transaction_returns_422_when_payload_contains_extra_fields(
-        self, client, created_transaction, instrument_nvda
+        self,
+        client,
+        created_transaction,
+        instrument_nvda,
+        created_user_auth_headers,
     ):
         payload = {
             "id": created_transaction["id"],
@@ -595,13 +718,15 @@ class TestPatchTransaction:
             "unknown_field": "should_fail",
         }
 
-        resp = await client.patch("/api/transactions/", json=payload)
+        resp = await client.patch(
+            "/api/transactions/", json=payload, headers=created_user_auth_headers
+        )
 
         assert resp.status_code == 422
 
     @pytest.mark.unit
     async def test_patch_transaction_reflects_date_created_in_response_when_date_is_provided(
-        self, client, created_transaction
+        self, client, created_transaction, created_user_auth_headers
     ):
         patched_date = "2020-02-02"
         payload = {
@@ -610,10 +735,33 @@ class TestPatchTransaction:
             "date_created": patched_date,
         }
 
-        response = await client.patch("/api/transactions/", json=payload)
+        response = await client.patch(
+            "/api/transactions/", json=payload, headers=created_user_auth_headers
+        )
 
         assert response.status_code == 200
         assert response.json()["date_created"] == patched_date
+
+    @pytest.mark.unit
+    async def test_patch_transaction_returns_400_when_transaction_belongs_to_different_user(
+        self,
+        client,
+        created_transaction,
+        another_user,
+        another_user_auth_headers,
+    ):
+        payload = {
+            "id": created_transaction["id"],
+            "user_id": another_user["id"],
+            "units": 99,
+        }
+
+        response = await client.patch(
+            "/api/transactions/", json=payload, headers=another_user_auth_headers
+        )
+
+        assert response.status_code == 400
+        assert response.json() == {"detail": "Transaction does not belong to user"}
 
 
 class TestDeleteTransaction:

@@ -9,6 +9,10 @@ function getStoredToken() {
 	return localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
+function get_stored_token() {
+	return getStoredToken();
+}
+
 function setCachedUser(token, user) {
 	cachedToken = token;
 	cachedUser = user;
@@ -23,6 +27,57 @@ function clearAuthCache() {
 
 function clearStoredToken() {
 	localStorage.removeItem(AUTH_TOKEN_KEY);
+}
+
+function invalidateCurrentUserCache() {
+	clearAuthCache();
+}
+
+function invalidate_current_user_cache() {
+	invalidateCurrentUserCache();
+}
+
+function parseApiError(payload, fallbackMessage) {
+	if (payload == null) {
+		return fallbackMessage;
+	}
+
+	if (typeof payload === 'string') {
+		return payload;
+	}
+
+	if (Array.isArray(payload)) {
+		return payload.map((part) => parseApiError(part, '')).filter(Boolean).join(', ') || fallbackMessage;
+	}
+
+	if (typeof payload === 'object') {
+		if ('detail' in payload) {
+			return parseApiError(payload.detail, fallbackMessage);
+		}
+
+		if ('message' in payload) {
+			return parseApiError(payload.message, fallbackMessage);
+		}
+	}
+
+	return fallbackMessage;
+}
+
+async function requireAuth(redirectPath = '/login') {
+	const token = getStoredToken();
+
+	if (!token) {
+		window.location.assign(redirectPath);
+		return null;
+	}
+
+	const user = await get_current_user();
+	if (!user) {
+		window.location.assign(redirectPath);
+		return null;
+	}
+
+	return { token, user };
 }
 
 async function get_current_user(options = {}) {
@@ -75,11 +130,12 @@ async function updateAuthUI() {
 	const loggedInNav = document.getElementById('navbar-logged-in');
 	const loggedOutNav = document.getElementById('navbar-logged-out');
 	const brandLink = document.getElementById('navbar-brand-link');
-	const logoutButton = document.getElementById('logout-button');
+	const accountLink = document.getElementById('navbar-account-link');
 	const dashboardSidebar = document.getElementById('dashboard-sidebar-auth');
 	const homeSidebar = document.getElementById('home-sidebar-links');
 	const transactionsSidebar = document.getElementById('transactions-sidebar-links');
 	const assetsSidebar = document.getElementById('assets-sidebar-links');
+	const accountSidebar = document.getElementById('account-sidebar-links');
 	const homeUserWelcome = document.getElementById('home-user-welcome');
 	const homeSidebarHomeLink = document.getElementById('home-sidebar-home-link');
 	const homeSidebarDashboardLink = document.getElementById('home-sidebar-dashboard-link');
@@ -91,6 +147,9 @@ async function updateAuthUI() {
 	const assetsSidebarDashboardLink = document.getElementById('assets-sidebar-dashboard-link');
 	const assetsSidebarTransactionLink = document.getElementById('assets-sidebar-transaction-link');
 	const assetsSidebarAssetLink = document.getElementById('assets-sidebar-asset-link');
+	const accountSidebarDashboardLink = document.getElementById('account-sidebar-dashboard-link');
+	const accountSidebarTransactionLink = document.getElementById('account-sidebar-transaction-link');
+	const accountSidebarAssetLink = document.getElementById('account-sidebar-asset-link');
 
 	const user = await get_current_user();
 	const isLoggedIn = Boolean(user);
@@ -107,6 +166,11 @@ async function updateAuthUI() {
 		brandLink.href = isLoggedIn ? `/users/${user.id}` : '/';
 	}
 
+	if (accountLink) {
+		accountLink.textContent = isLoggedIn ? user.username : 'Account';
+		accountLink.href = isLoggedIn ? '/account' : '/login';
+	}
+
 	if (dashboardSidebar) {
 		dashboardSidebar.hidden = !isLoggedIn;
 	}
@@ -121,6 +185,10 @@ async function updateAuthUI() {
 
 	if (assetsSidebar) {
 		assetsSidebar.hidden = !isLoggedIn;
+	}
+
+	if (accountSidebar) {
+		accountSidebar.hidden = !isLoggedIn;
 	}
 
 	if (homeUserWelcome) {
@@ -168,11 +236,16 @@ async function updateAuthUI() {
 		assetsSidebarAssetLink.href = isLoggedIn ? `/users/${user.id}/assets` : '#';
 	}
 
-	if (logoutButton) {
-		logoutButton.onclick = async (event) => {
-			event.preventDefault();
-			await logout();
-		};
+	if (accountSidebarDashboardLink) {
+		accountSidebarDashboardLink.href = isLoggedIn ? `/users/${user.id}` : '#';
+	}
+
+	if (accountSidebarTransactionLink) {
+		accountSidebarTransactionLink.href = isLoggedIn ? `/users/${user.id}/transactions` : '#';
+	}
+
+	if (accountSidebarAssetLink) {
+		accountSidebarAssetLink.href = isLoggedIn ? `/users/${user.id}/assets` : '#';
 	}
 
 	return user;
@@ -185,6 +258,13 @@ async function logout() {
 }
 
 window.get_current_user = get_current_user;
+window.getCurrentUser = get_current_user;
+window.getStoredToken = getStoredToken;
+window.get_stored_token = get_stored_token;
+window.invalidateCurrentUserCache = invalidateCurrentUserCache;
+window.invalidate_current_user_cache = invalidate_current_user_cache;
+window.parseApiError = parseApiError;
+window.requireAuth = requireAuth;
 window.logout = logout;
 window.updateAuthUI = updateAuthUI;
 

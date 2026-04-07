@@ -29,12 +29,21 @@ def register_page(request: Request):
     return request.app.state.templates.TemplateResponse(request, name="register.html")
 
 
+@router.get("/account", name="account_page", include_in_schema=False)
+def account_page(request: Request):
+    return request.app.state.templates.TemplateResponse(request, name="account.html")
+
+
 # User home page
 @router.get("/users/{user_id}", include_in_schema=False)
 async def user_home_page(
     request: Request, user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    result = await db.execute(select(models.Users).where(models.Users.id == user_id))
+    result = await db.execute(
+        select(models.Users)
+        .options(selectinload(models.Users.contact))
+        .where(models.Users.id == user_id)
+    )
     user = result.scalars().first()
 
     if not user:

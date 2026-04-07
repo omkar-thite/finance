@@ -31,8 +31,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from auth import (
     create_access_token,
     hash_password,
-    oauth2_scheme,
-    verify_access_token,
+    CurrentUser,
     verify_password,
 )
 from config import settings
@@ -77,51 +76,29 @@ async def login_for_access_token(
 
 # Get current user
 @router.get("/me", response_model=UserPrivate)
-async def get_current_user(
-    token: Annotated[str, Depends(oauth2_scheme)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Get currently authenticated user."""
-    user_id = verify_access_token(token)
-    if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    # Validate user id is a valid integer
-    try:
-        user_id_int = int(user_id)
-    except (TypeError, ValueError):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalud or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    result = await db.execute(
-        select(models.Users).where(models.Users.id == user_id_int)
-    )
-    user = result.scalars().first()
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    return user
+async def get_current_user(current_user: CurrentUser):
+    return current_user
 
 
 # Get user by id
-@router.get("/{user_id}", response_model=UserPublic)
-async def get_user_api(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]):
+@router.get("/{user_id}", response_model=UserPrivate)
+async def get_user_api(
+    user_id: int,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this user's data",
+        )
+
     user = await get_user(db, user_id)
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=ErrorMessages.User.NOT_FOUND
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
+
     return user
 
 
@@ -186,25 +163,31 @@ async def create_user(user: CreateUser, db: Annotated[AsyncSession, Depends(get_
 
     db.add(new_user)
     await db.commit()
-    await db.refresh(new_user)
+    await db.refresh(new_user, attribute_names=["contact", "auth"])
 
-    return new_user
+    return UserPrivate.model_validate(new_user)
 
 
 # Patch: Update a user
-@router.patch("/", status_code=status.HTTP_200_OK, response_model=UserPublic)
+@router.patch("/", status_code=status.HTTP_200_OK, response_model=UserPrivate)
 async def patch_user(
-    user_update_data: PatchUser, db: Annotated[AsyncSession, Depends(get_db)]
+    user_update_data: PatchUser,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    # TODO: Extract user id from current session
-    # user_id = ...
+    # Ownership check
+    if current_user.id != user_update_data.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user's data",
+        )
 
     user = await db.get(models.Users, user_update_data.user_id)
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorMessages.User.NOT_FOUND,
+            detail="User not found",
         )
 
     user.username = user_update_data.username.lower()
@@ -231,24 +214,31 @@ async def patch_user(
 
     # Commit post to database
     await db.commit()
-    await db.refresh(user)
+    await db.refresh(user, attribute_names=["contact"])
 
-    return user
+    return UserPrivate.model_validate(user)
 
 
 # Delete: Delete a user
 @router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]):
-
-    # TODO: Extract user id from current session
-    # user_id = ...
+async def delete_user(
+    user_id: int,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    # ownership check
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this user",
+        )
 
     user = await db.get(models.Users, user_id)
 
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=ErrorMessages.User.NOT_FOUND,
+            detail="User not found",
         )
 
     await db.delete(user)
@@ -258,8 +248,17 @@ async def delete_user(user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
 # Get all transaction of specific user
 @router.get("/{user_id}/transactions", response_model=list[ResponseTrx])
 async def get_user_transactions_api(
-    user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
+    user_id: int,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # ownership check
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this user's transactions",
+        )
+
     user = await get_user(db, user_id)
 
     if not user:
@@ -279,11 +278,17 @@ async def get_user_transactions_api(
 # Get user's holdings
 @router.get("/{user_id}/holdings", response_model=list[ResponseHoldings])
 async def get_user_assets_api(
-    user_id: int, db: Annotated[AsyncSession, Depends(get_db)]
+    user_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_user: CurrentUser,
 ):
 
-    # TODO: Get user_id from current session after implementing
-    # authenticte with passed user_id
+    # ownership check
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this user's holdings",
+        )
 
     user = await db.get(models.Users, user_id)
 
@@ -309,8 +314,6 @@ async def create_user_holdings_api(
     create_holding: CreateHoldings,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-
-    # TODO: Get user_id from current session after implementing authenticte with passed user_id
 
     user = await db.get(models.Users, user_id)
 
@@ -339,10 +342,16 @@ async def patch_user_holdings_api(
     user_id: int,
     holding_id: int,
     holding_update_data: PatchHoldings,
+    current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
 
-    # TODO: Get user_id from current session after implementing authenticte with passed user_id
+    # ownership check
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user's holdings",
+        )
 
     user = await db.get(models.Users, user_id)
 

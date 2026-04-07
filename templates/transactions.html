@@ -14,6 +14,36 @@
     <h1>Transactions</h1>
     <p>Here you can view and manage your financial transactions.</p>
 
+    <section class="manage-card" id="transaction-create-card">
+        <h2>Create Transaction</h2>
+        <form id="create-transaction-form" class="manage-form" novalidate>
+            <label>
+                <span>Type</span>
+                <select name="type" required>
+                    <option value="buy">Buy</option>
+                    <option value="sell">Sell</option>
+                </select>
+            </label>
+            <label>
+                <span>Instrument ID</span>
+                <input type="number" name="instrument_id" min="1" required>
+            </label>
+            <label>
+                <span>Units</span>
+                <input type="number" name="units" min="1" required>
+            </label>
+            <label>
+                <span>Rate</span>
+                <input type="number" name="rate" min="0" step="0.0001" required>
+            </label>
+            <label>
+                <span>Charges</span>
+                <input type="number" name="charges" min="0" step="0.0001" value="0">
+            </label>
+            <button type="submit" class="btn-auth manage-submit">Add Transaction</button>
+        </form>
+    </section>
+
     <div class="table-container">
         <table>
             <thead>
@@ -29,7 +59,7 @@
             </thead>
             <tbody>
                 {% for tr in transactions %}
-                <tr>
+                <tr data-transaction-id="{{ tr.id }}" data-transaction-user-id="{{ tr.user_id }}">
                     <td>
                         <span class="badge {% if tr.type.value == 'buy' %}badge-buy{% else %}badge-sell{% endif %}">
                             {{ tr.type.value | capitalize }}
@@ -42,9 +72,9 @@
                     <td>
                         {{ "%.2f"|format(tr.units * tr.rate) }}
                     </td>
-                    <td>
-                        <button class="btn-warning" title="Edit">&#9998;</button>
-                        <button class="btn-danger" title="Delete">&#10005;</button>
+                    <td class="row-actions" hidden>
+                        <button class="btn-warning edit-transaction-btn" title="Edit" type="button">&#9998;</button>
+                        <button class="btn-danger delete-transaction-btn" title="Delete" type="button">&#10005;</button>
                     </td>
                 </tr>
                 {% if tr.charges %}
@@ -68,4 +98,17 @@
     </div>
     </div>
 </div>
+
+<div class="app-modal" id="app-modal" hidden>
+    <div class="app-modal-backdrop" data-modal-close></div>
+    <div class="app-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="app-modal-title">
+        <h3 id="app-modal-title"></h3>
+        <p id="app-modal-message"></p>
+        <div class="app-modal-actions" id="app-modal-actions"></div>
+    </div>
+</div>
 {% endblock content %}
+
+{% block page_scripts %}
+<script src="{{ url_for('static', path='js/portfolio_pages.js') }}?v=20260407-1"></script>
+{% endblock page_scripts %}

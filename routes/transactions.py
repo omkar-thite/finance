@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import models
 from database import get_db
 from utils.error_messages import ErrorMessages
+from auth import CurrentUser
 
 from utils.app_services import update_user_holdings, get_user
 
@@ -86,13 +87,15 @@ async def create_transaction_api(
 # Patch: Update a transaction
 @router.patch("/", status_code=status.HTTP_200_OK, response_model=ResponseTrx)
 async def patch_trx(
-    trx_update_data: PatchTrx, db: Annotated[AsyncSession, Depends(get_db)]
+    trx_update_data: PatchTrx,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    # TODO: Get user id from session
-    # user_id =
-
-    # TODO: Authnticate user id with session user id
-    # ...
+    if current_user.id != trx_update_data.user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user's transactions",
+        )
 
     user = await db.get(models.Users, trx_update_data.user_id)
 

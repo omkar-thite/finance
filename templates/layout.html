@@ -32,7 +32,7 @@
         </div>
         <div class="navbar-actions">
             <div class="navbar-auth-section" id="navbar-logged-in" hidden>
-                <button class="btn-auth" id="logout-button" type="button">Logout</button>
+                <a class="btn-auth" id="navbar-account-link" href="{{ url_for('login_page') }}">Account</a>
             </div>
             <div class="navbar-auth-section" id="navbar-logged-out">
                 <a class="btn-auth" href="{{ url_for('login_page') }}">Login</a>
@@ -56,6 +56,7 @@
 </div>
 
 <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+{% block page_scripts %}{% endblock page_scripts %}
 
 </body>
 </html>
