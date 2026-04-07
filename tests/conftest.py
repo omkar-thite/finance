@@ -8,6 +8,7 @@ from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock
 from main import app
+import utils.image_utils as image_utils
 
 
 @pytest.fixture(scope="session")
@@ -26,6 +27,14 @@ def clear_dependency_overrides():
     """
     yield
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(autouse=True)
+def isolate_profile_pics_dir(tmp_path, monkeypatch):
+    """Redirect profile picture writes during tests to a temp directory."""
+    test_profile_pics_dir = tmp_path / "profile_pics"
+    monkeypatch.setattr(image_utils, "PROFILE_PICS_DIR", test_profile_pics_dir)
+    return test_profile_pics_dir
 
 
 @pytest.fixture

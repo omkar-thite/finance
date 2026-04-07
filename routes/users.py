@@ -463,7 +463,7 @@ async def update_profile_picture_api(
     current_user.image_file_name = new_filename
 
     await db.commit()
-    await db.refresh(current_user)
+    await db.refresh(current_user, attribute_names=["contact"])
 
     if old_filename:
         await run_in_threadpool(delete_profile_image, old_filename)
@@ -495,7 +495,7 @@ async def delete_profile_picture_api(
     current_user.image_file_name = None
 
     await db.commit()
-    await db.refresh(current_user)
+    await db.refresh(current_user, attribute_names=["contact"])
 
     await run_in_threadpool(delete_profile_image, old_filename)
 
