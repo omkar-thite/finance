@@ -78,6 +78,16 @@
         }
     }
 
+    function buildProfileImageUrl(imagePath) {
+        const path = String(imagePath || '').trim();
+
+        if (!path) {
+            return '';
+        }
+
+        return `/${path.replace(/^\/+/, '')}`;
+    }
+
     function updateProfilePreview(user) {
         const username = String(user.username || '').trim();
         const email = String(user.email || '').trim();
@@ -103,10 +113,11 @@
 
         if (image && fallback) {
             if (imagePath) {
-                image.src = `/${imagePath.replace(/^\/+/, '')}`;
+                image.src = buildProfileImageUrl(imagePath);
                 image.hidden = false;
                 fallback.hidden = true;
             } else {
+                image.removeAttribute('src');
                 image.hidden = true;
                 fallback.hidden = false;
             }
@@ -116,8 +127,6 @@
     function fillForm(user) {
         const usernameInput = document.getElementById('account-username');
         const emailInput = document.getElementById('account-email');
-        const imageFileName = document.getElementById('account-image-file-name');
-        const existingFileName = user.image_file_name || (user.image_path ? String(user.image_path).split('/').pop() : '');
 
         if (usernameInput) {
             usernameInput.value = user.username || '';
@@ -126,12 +135,85 @@
         if (emailInput) {
             emailInput.value = user.email || '';
         }
+    }
 
-        if (imageFileName) {
-            imageFileName.textContent = existingFileName
-                ? `Current file: ${existingFileName}. Upload coming soon.`
-                : 'Upload coming soon. Current profile image is shown above.';
+    function updatePictureStatus(message, kind = '') {
+        const statusNode = document.getElementById('account-picture-status');
+
+        if (!statusNode) {
+            return;
         }
+
+        statusNode.textContent = message || '';
+        statusNode.classList.remove('is-success', 'is-error');
+
+        if (kind) {
+            statusNode.classList.add(kind);
+        }
+    }
+
+    function clearPictureSelection(elements) {
+        const {
+            pictureInput,
+            pictureFileName,
+            picturePreview,
+            picturePreviewImage,
+            pictureUploadButton,
+        } = elements;
+
+        if (pictureInput) {
+            pictureInput.value = '';
+        }
+
+        if (pictureFileName) {
+            pictureFileName.textContent = 'No file selected';
+        }
+
+        if (picturePreview) {
+            picturePreview.hidden = true;
+        }
+
+        if (picturePreviewImage) {
+            picturePreviewImage.removeAttribute('src');
+        }
+
+        if (pictureUploadButton) {
+            pictureUploadButton.disabled = true;
+        }
+    }
+
+    function setPictureSelection(elements, file) {
+        const {
+            pictureFileName,
+            picturePreview,
+            picturePreviewImage,
+            pictureUploadButton,
+        } = elements;
+
+        if (pictureFileName) {
+            pictureFileName.textContent = file ? file.name : 'No file selected';
+        }
+
+        if (!file) {
+            clearPictureSelection(elements);
+            return;
+        }
+
+        if (picturePreview) {
+            picturePreview.hidden = false;
+        }
+
+        if (pictureUploadButton) {
+            pictureUploadButton.disabled = false;
+        }
+
+        const reader = new FileReader();
+        reader.addEventListener('load', () => {
+            if (picturePreviewImage) {
+                picturePreviewImage.src = String(reader.result || '');
+            }
+        });
+        reader.readAsDataURL(file);
     }
 
     async function initializeAccountPage() {
@@ -147,9 +229,126 @@
         }
 
         let { user, token } = auth;
+
+        const latestUser = await window.get_current_user({ forceRefresh: true });
+        if (latestUser) {
+            user = latestUser;
+        }
+        const pictureInput = document.getElementById('account-picture-input');
+        const pictureChooseButton = document.getElementById('account-picture-choose-button');
+        const pictureUploadButton = document.getElementById('account-picture-upload-button');
+        const pictureFileName = document.getElementById('account-picture-file-name');
+        const picturePreview = document.getElementById('account-picture-preview');
+        const picturePreviewImage = document.getElementById('account-picture-preview-image');
+        const uploadDefaultText = pictureUploadButton ? pictureUploadButton.textContent : 'Upload Picture';
+        const pictureElements = {
+            pictureInput,
+            pictureFileName,
+            picturePreview,
+            picturePreviewImage,
+            pictureUploadButton,
+        };
+        let selectedPictureFile = null;
+
         setSidebarLinks(user.id);
         fillForm(user);
         updateProfilePreview(user);
+        clearPictureSelection(pictureElements);
+        updatePictureStatus('');
+
+        if (pictureChooseButton && pictureInput) {
+            pictureChooseButton.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    pictureInput.click();
+                }
+            });
+        }
+
+        if (pictureInput) {
+            pictureInput.addEventListener('change', () => {
+                const file = pictureInput.files && pictureInput.files[0] ? pictureInput.files[0] : null;
+
+                if (!file) {
+                    selectedPictureFile = null;
+                    clearPictureSelection(pictureElements);
+                    updatePictureStatus('');
+                    return;
+                }
+
+                if (file.type && !file.type.startsWith('image/')) {
+                    selectedPictureFile = null;
+                    clearPictureSelection(pictureElements);
+                    updatePictureStatus('Please choose an image file.', 'is-error');
+                    return;
+                }
+
+                selectedPictureFile = file;
+                setPictureSelection(pictureElements, file);
+                updatePictureStatus('Preview ready. Upload when you are ready.');
+            });
+        }
+
+        if (pictureUploadButton) {
+            pictureUploadButton.addEventListener('click', async () => {
+                if (!selectedPictureFile) {
+                    updatePictureStatus('Choose an image before uploading.', 'is-error');
+                    return;
+                }
+
+                const uploadButtonText = pictureUploadButton.textContent;
+                pictureUploadButton.disabled = true;
+                pictureUploadButton.textContent = 'Uploading...';
+                updatePictureStatus('Uploading profile picture...');
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', selectedPictureFile);
+
+                    const response = await fetch(`/api/users/${user.id}/picture`, {
+                        method: 'PATCH',
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: formData,
+                    });
+
+                    if (response.status === 401) {
+                        window.location.assign('/login');
+                        return;
+                    }
+
+                    const body = await response.json().catch(() => ({}));
+
+                    if (response.status === 403) {
+                        updatePictureStatus(window.parseApiError(body, 'You are not allowed to update this profile picture.'), 'is-error');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        updatePictureStatus(window.parseApiError(body, 'Unable to upload profile picture.'), 'is-error');
+                        return;
+                    }
+
+                    window.invalidateCurrentUserCache();
+                    user = body;
+                    token = window.getStoredToken() || token;
+                    fillForm(user);
+                    updateProfilePreview(user);
+                    selectedPictureFile = null;
+                    clearPictureSelection(pictureElements);
+                    updatePictureStatus('Profile picture uploaded successfully.', 'is-success');
+                    await window.updateAuthUI();
+                } catch (error) {
+                    updatePictureStatus('Unable to upload profile picture.', 'is-error');
+                } finally {
+                    if (pictureUploadButton) {
+                        pictureUploadButton.textContent = uploadButtonText || uploadDefaultText;
+                        pictureUploadButton.disabled = !selectedPictureFile;
+                    }
+                }
+            });
+        }
 
         accountForm.addEventListener('submit', async (event) => {
             event.preventDefault();
@@ -168,11 +367,9 @@
             }
 
             const payload = {
-                user_id: user.id,
                 username: usernameValue,
                 email: emailValue,
                 phone_no: user.phone_no || null,
-                image_file_name: user.image_path ? String(user.image_path).split('/').pop() : null,
             };
 
             const response = await fetch('/api/users/', {

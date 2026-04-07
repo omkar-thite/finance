@@ -114,7 +114,8 @@
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 140px;
+        width: auto;
+        min-width: 96px;
         min-height: 40px;
         padding: 8px 14px;
         border-radius: 6px;
@@ -199,15 +200,15 @@
 
     @media (max-width: 620px) {
         .btn-auth {
-            width: 100%;
+            width: auto;
         }
 
         .navbar-auth-section {
-            width: 100%;
+            width: auto;
         }
 
         .navbar-actions {
-            justify-content: stretch;
+            justify-content: flex-end;
         }
     }
 
@@ -375,7 +376,7 @@
 .user-home-container {
     flex: 1;
     min-width: 0;
-    margin-left: 100px;
+    margin-left: 24px;
 }
 
 @media (max-width: 900px) {
@@ -962,6 +963,99 @@
     background: color-mix(in srgb, var(--card-bg) 94%, transparent);
 }
 
+.account-picture-upload {
+    display: grid;
+    gap: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 12px;
+    background: color-mix(in srgb, var(--card-bg) 92%, transparent);
+}
+
+.account-picture-label {
+    font-size: 0.9rem;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.account-picture-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.account-picture-choose-button,
+.account-picture-upload-button {
+    width: auto;
+    min-width: 88px;
+    min-height: 30px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+}
+
+.account-picture-upload-button {
+    justify-self: start;
+    width: fit-content;
+}
+
+.account-picture-choose-button {
+    user-select: none;
+}
+
+.account-picture-choose-button:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.account-picture-upload-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.account-picture-file-name {
+    color: var(--text-color);
+    font-size: 0.92rem;
+    word-break: break-word;
+}
+
+.account-picture-hint {
+    margin: 0;
+}
+
+.account-picture-preview {
+    width: 180px;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: var(--bg-color);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-color) 35%, transparent);
+}
+
+.account-picture-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.account-picture-status {
+    margin: 0;
+    min-height: 1.2em;
+    font-size: 0.92rem;
+    color: var(--muted);
+}
+
+.account-picture-status.is-success {
+    color: var(--success-color);
+}
+
+.account-picture-status.is-error {
+    color: var(--danger-color);
+}
+
 .manage-submit {
     width: auto;
     min-width: 130px;
@@ -1035,6 +1129,16 @@
     margin-top: 10px;
     padding-top: 14px;
     border-top: 1px solid var(--border-color);
+}
+
+.account-form-actions .btn-auth,
+.account-danger-zone .btn-danger,
+.manage-form .manage-submit {
+    width: auto;
+    min-width: 110px;
+    min-height: 34px;
+    padding: 6px 10px;
+    font-size: 0.84rem;
 }
 
 .account-reset-section p,

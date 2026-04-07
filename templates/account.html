@@ -41,12 +41,19 @@
                     <span>Email</span>
                     <input id="account-email" name="email" type="email" required>
                 </label>
-                <label>
-                    <span>Profile Picture</span>
-                </label>
-                <div class="upload-placeholder">
-                    <p id="account-image-file-name" class="auth-field-hint">Upload coming soon. Current profile image is shown above.</p>
-                    <button type="button" class="btn-auth btn-neutral" disabled>Coming soon</button>
+                <div class="account-picture-upload">
+                    <span class="account-picture-label">Profile Picture</span>
+                    <input id="account-picture-input" type="file" accept="image/*" hidden>
+                    <div class="account-picture-controls">
+                        <label for="account-picture-input" id="account-picture-choose-button" class="btn-auth btn-neutral account-picture-choose-button" role="button" tabindex="0">Choose File</label>
+                        <span id="account-picture-file-name" class="account-picture-file-name">No file selected</span>
+                    </div>
+                    <p class="auth-field-hint account-picture-hint">Supported formats: PNG, JPG, JPEG, GIF, and WEBP. Max file size: 5 MB.</p>
+                    <div id="account-picture-preview" class="account-picture-preview" hidden>
+                        <img id="account-picture-preview-image" alt="Selected profile picture preview">
+                    </div>
+                    <p id="account-picture-status" class="account-picture-status" aria-live="polite"></p>
+                    <button id="account-picture-upload-button" type="button" class="btn-auth btn-neutral account-picture-upload-button" disabled>Upload Picture</button>
                 </div>
 
                 <div class="account-form-actions">
@@ -95,5 +102,5 @@
 {% endblock content %}
 
 {% block page_scripts %}
-<script src="{{ url_for('static', path='js/account.js') }}?v=20260407-1"></script>
+<script src="{{ url_for('static', path='js/account.js') }}?v=20260407-3"></script>
 {% endblock page_scripts %}

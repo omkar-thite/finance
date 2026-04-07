@@ -141,12 +141,15 @@ async function updateAuthUI() {
 	const homeSidebarDashboardLink = document.getElementById('home-sidebar-dashboard-link');
 	const homeSidebarTransactionLink = document.getElementById('home-sidebar-transaction-link');
 	const homeSidebarAssetLink = document.getElementById('home-sidebar-asset-link');
+	const homeSidebarAccountLink = document.getElementById('home-sidebar-account-link');
 	const transactionsSidebarDashboardLink = document.getElementById('transactions-sidebar-dashboard-link');
 	const transactionsSidebarTransactionLink = document.getElementById('transactions-sidebar-transaction-link');
 	const transactionsSidebarAssetLink = document.getElementById('transactions-sidebar-asset-link');
+	const transactionsSidebarAccountLink = document.getElementById('transactions-sidebar-account-link');
 	const assetsSidebarDashboardLink = document.getElementById('assets-sidebar-dashboard-link');
 	const assetsSidebarTransactionLink = document.getElementById('assets-sidebar-transaction-link');
 	const assetsSidebarAssetLink = document.getElementById('assets-sidebar-asset-link');
+	const assetsSidebarAccountLink = document.getElementById('assets-sidebar-account-link');
 	const accountSidebarDashboardLink = document.getElementById('account-sidebar-dashboard-link');
 	const accountSidebarTransactionLink = document.getElementById('account-sidebar-transaction-link');
 	const accountSidebarAssetLink = document.getElementById('account-sidebar-asset-link');
@@ -212,6 +215,10 @@ async function updateAuthUI() {
 		homeSidebarAssetLink.href = isLoggedIn ? `/users/${user.id}/assets` : '#';
 	}
 
+	if (homeSidebarAccountLink) {
+		homeSidebarAccountLink.href = isLoggedIn ? '/account' : '#';
+	}
+
 	if (transactionsSidebarDashboardLink) {
 		transactionsSidebarDashboardLink.href = isLoggedIn ? `/users/${user.id}` : '#';
 	}
@@ -224,6 +231,10 @@ async function updateAuthUI() {
 		transactionsSidebarAssetLink.href = isLoggedIn ? `/users/${user.id}/assets` : '#';
 	}
 
+	if (transactionsSidebarAccountLink) {
+		transactionsSidebarAccountLink.href = isLoggedIn ? '/account' : '#';
+	}
+
 	if (assetsSidebarDashboardLink) {
 		assetsSidebarDashboardLink.href = isLoggedIn ? `/users/${user.id}` : '#';
 	}
@@ -234,6 +245,10 @@ async function updateAuthUI() {
 
 	if (assetsSidebarAssetLink) {
 		assetsSidebarAssetLink.href = isLoggedIn ? `/users/${user.id}/assets` : '#';
+	}
+
+	if (assetsSidebarAccountLink) {
+		assetsSidebarAccountLink.href = isLoggedIn ? '/account' : '#';
 	}
 
 	if (accountSidebarDashboardLink) {

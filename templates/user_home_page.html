@@ -32,7 +32,7 @@
     <div class="profile-card">
         <div class="profile-avatar-wrap">
             {% if user and user.image_path %}
-                <img src="{{ url_for('media', path=user.image_file) }}" alt="Profile Picture" class="avatar-img">
+                <img src="{{ url_for('media', path='profile_pics/' ~ user.image_file_name) }}" alt="Profile Picture" class="avatar-img">
             {% else %}
                 <div class="avatar-placeholder">
                     <span>{{ user.username[0] | upper if user else '?' }}</span>

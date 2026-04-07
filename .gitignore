@@ -29,4 +29,5 @@ wheels/
 *.md
 !README.md
 
-checking.py
+media
+populate_images

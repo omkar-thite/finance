@@ -135,6 +135,7 @@ Contract: creates, reads, updates, deletes transactions.
 - Derive mock field values from actual model columns and schema validators — never invent fields.
 - Never look for internals of any frameworks like sqlalchemy while writing tests. If unsure about framework's behaviour, specifically ask user.  
 
+
 ## Refactoring Mode 
 - Activated when the user message contains: "enter refactor mode" 
 
@@ -150,3 +151,9 @@ Contract: creates, reads, updates, deletes transactions.
   - async mechanics (def → async def, adding await, MagicMock → AsyncMock)
   - imports that broke due to renamed/moved modules
   - mocks for newly introduced dependencies
+
+  - Never modify backend files (controllers, services, models, routes, DB logic).
+- If a test failure requires a backend change, stop and explain:
+  1. Which file needs changing
+  2. What the change should be
+  3. Why the test expects this behavior

@@ -3,11 +3,14 @@ Guards: main.py
 Contract: unit coverage for API and HTML routes, including patch/delete flows.
 """
 
+from datetime import date
+from io import BytesIO
+from typing import AsyncGenerator
+
 import pytest
 import pytest_asyncio
-from datetime import date
-from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
+from PIL import Image
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 from main import app
@@ -16,6 +19,14 @@ from sqlalchemy.pool import StaticPool
 import models
 
 pytestmark = [pytest.mark.unit, pytest.mark.asyncio]
+
+
+def make_test_image_bytes() -> bytes:
+    buffer = BytesIO()
+    image = Image.new("RGB", (16, 24), color=(64, 128, 192))
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -502,15 +513,13 @@ class TestGetUserTransactions:
 
 class TestPatchUser:
     @pytest.mark.unit
-    async def test_patch_user_returns_200_when_payload_is_valid(
+    async def test_patch_user_returns_200_and_updates_logged_in_user(
         self, client, created_user, created_user_auth_headers
     ):
         payload = {
-            "user_id": created_user["id"],
             "username": "alice_updated",
             "email": "alice.updated@example.com",
             "phone_no": "1234567890",
-            "image_file_name": "avatar.png",
         }
 
         resp = await client.patch(
@@ -523,25 +532,34 @@ class TestPatchUser:
             "username": "alice_updated",
             "email": "alice.updated@example.com",
             "phone_no": "1234567890",
-            "image_path": "media/profile_pics/avatar.png",
+            "image_path": None,
         }
 
     @pytest.mark.unit
-    async def test_patch_user_returns_403_when_user_tries_to_patch_another_user(
+    async def test_patch_user_ignores_other_user_records_and_updates_token_user_only(
         self, client, created_user, another_user, created_user_auth_headers
     ):
         payload = {
-            "user_id": another_user["id"],
             "username": "ghost",
             "email": "ghost@example.com",
+            "phone_no": "5555555555",
         }
 
         resp = await client.patch(
             "/api/users/", json=payload, headers=created_user_auth_headers
         )
 
-        assert resp.status_code == 403
-        assert resp.json() == {"detail": "Not authorized to update this user's data"}
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["id"] == created_user["id"]
+        assert body["username"] == "ghost"
+        assert body["email"] == "ghost@example.com"
+        assert body["phone_no"] == "5555555555"
+
+        other_user_resp = await client.get(
+            f"/api/users/{another_user['id']}", headers=created_user_auth_headers
+        )
+        assert other_user_resp.status_code == 403
 
     @pytest.mark.unit
     async def test_patch_user_returns_422_when_required_field_is_missing(
@@ -581,6 +599,45 @@ class TestPatchUser:
         )
 
         assert response.status_code == 422
+
+    @pytest.mark.unit
+    async def test_update_profile_picture_upload_succeeds(
+        self, client, created_user, created_user_auth_headers
+    ):
+        response = await client.patch(
+            f"/api/users/{created_user['id']}/picture",
+            headers=created_user_auth_headers,
+            files={
+                "file": (
+                    "avatar.png",
+                    make_test_image_bytes(),
+                    "image/png",
+                )
+            },
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["image_path"] is not None
+        assert body["image_path"].startswith("media/profile_pics/")
+
+    @pytest.mark.unit
+    async def test_update_profile_picture_returns_403_for_other_user(
+        self, client, created_user, another_user_auth_headers
+    ):
+        response = await client.patch(
+            f"/api/users/{created_user['id']}/picture",
+            headers=another_user_auth_headers,
+            files={
+                "file": (
+                    "avatar.png",
+                    make_test_image_bytes(),
+                    "image/png",
+                )
+            },
+        )
+
+        assert response.status_code == 403
 
     @pytest.mark.unit
     async def test_patch_user_returns_401_when_auth_header_is_missing(

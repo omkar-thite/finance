@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, UploadFile, status, Depends, File
 from fastapi.exceptions import HTTPException
 from utils.app_services import update_user_holdings, get_user
 
@@ -35,6 +35,9 @@ from auth import (
     verify_password,
 )
 from config import settings
+from PIL import UnidentifiedImageError
+from utils.image_utils import process_profile_image, delete_profile_image
+from fastapi.concurrency import run_in_threadpool
 
 router = APIRouter()
 
@@ -175,14 +178,7 @@ async def patch_user(
     current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    # Ownership check
-    if current_user.id != user_update_data.user_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to update this user's data",
-        )
-
-    user = await db.get(models.Users, user_update_data.user_id)
+    user = await db.get(models.Users, current_user.id)
 
     if not user:
         raise HTTPException(
@@ -190,27 +186,62 @@ async def patch_user(
             detail="User not found",
         )
 
-    user.username = user_update_data.username.lower()
+    normalized_username = user_update_data.username.strip().lower()
+    username_result = await db.execute(
+        select(models.Users.id).where(
+            func.lower(models.Users.username) == normalized_username,
+            models.Users.id != current_user.id,
+        )
+    )
+    username_exists = username_result.scalars().first()
+    if username_exists:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ErrorMessages.User.USERNAME_EXISTS,
+        )
+
+    normalized_email = user_update_data.email.strip().lower()
+    email_result = await db.execute(
+        select(models.UserContact.user_id).where(
+            func.lower(models.UserContact.email) == normalized_email,
+            models.UserContact.user_id != current_user.id,
+        )
+    )
+    email_exists = email_result.scalars().first()
+
+    phone_exists = None
+    if user_update_data.phone_no:
+        phone_result = await db.execute(
+            select(models.UserContact.user_id).where(
+                models.UserContact.phone_no == user_update_data.phone_no,
+                models.UserContact.user_id != current_user.id,
+            )
+        )
+        phone_exists = phone_result.scalars().first()
+
+    if email_exists or phone_exists:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=ErrorMessages.User.EMAIL_OR_PHONE_EXISTS,
+        )
+
+    user.username = normalized_username
 
     contact_result = await db.execute(
-        select(models.UserContact).where(
-            models.UserContact.user_id == user_update_data.user_id
-        )
+        select(models.UserContact).where(models.UserContact.user_id == current_user.id)
     )
     contact = contact_result.scalars().first()
 
     if contact is None:
         contact = models.UserContact(
-            user_id=user_update_data.user_id,
+            user_id=current_user.id,
             email=user_update_data.email,
             phone_no=user_update_data.phone_no,
         )
         db.add(contact)
     else:
-        contact.email = user_update_data.email
+        contact.email = normalized_email
         contact.phone_no = user_update_data.phone_no
-
-    user.image_file_name = user_update_data.image_file_name
 
     # Commit post to database
     await db.commit()
@@ -241,8 +272,13 @@ async def delete_user(
             detail="User not found",
         )
 
+    old_filename = user.image_file_name
+
     await db.delete(user)
     await db.commit()
+
+    if old_filename:
+        delete_profile_image(old_filename)
 
 
 # Get all transaction of specific user
@@ -390,3 +426,77 @@ async def patch_user_holdings_api(
     await db.refresh(refreshed_holding)
 
     return refreshed_holding
+
+
+@router.patch("/{user_id}/picture", response_model=UserPrivate)
+async def update_profile_picture_api(
+    user_id: int,
+    file: Annotated[UploadFile, File(...)],
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    # Only original user is allowed to update the profile picture
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user.",
+        )
+
+    content = await file.read()
+
+    if len(content) > settings.max_upload_size_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"File too large. Max size is"
+            f"{settings.max_upload_size_bytes // (1024 * 1024)} MB.",
+        )
+
+    try:
+        new_filename = await run_in_threadpool(process_profile_image, content)
+    except UnidentifiedImageError as err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid image file. Please upload a valid image.",
+        ) from err
+
+    old_filename = current_user.image_file_name
+    current_user.image_file_name = new_filename
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    if old_filename:
+        await run_in_threadpool(delete_profile_image, old_filename)
+
+    return current_user
+
+
+@router.delete("/{user_id}/picture", response_model=UserPrivate)
+async def delete_profile_picture_api(
+    user_id: int,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    # Only original user is allowed to delete the profile picture
+    if current_user.id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user.",
+        )
+
+    old_filename = current_user.image_file_name
+
+    if not old_filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No profile picture to delete.",
+        )
+
+    current_user.image_file_name = None
+
+    await db.commit()
+    await db.refresh(current_user)
+
+    await run_in_threadpool(delete_profile_image, old_filename)
+
+    return current_user

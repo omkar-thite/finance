@@ -62,11 +62,9 @@ class CreateUser(BaseModel):
 class PatchUser(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    user_id: int  # Remove this after auth implementation
     username: str
     email: EmailStr
     phone_no: str | None = None
-    image_file_name: str | None = None
 
 
 class BaseHoldings(BaseModel):
