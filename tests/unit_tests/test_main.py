@@ -488,7 +488,12 @@ class TestGetUserTransactions:
             headers=created_user_auth_headers,
         )
         assert resp.status_code == 200
-        assert resp.json()[0]["user_id"] == created_user["id"]
+        body = resp.json()
+        assert "transactions" in body
+        assert len(body["transactions"]) >= 1
+        assert body["transactions"][0]["user_id"] == created_user["id"]
+        assert body["skip"] == 0
+        assert body["limit"] == 10
 
     async def test_unknown_user(self, client, created_user_auth_headers):
         response = await client.get(
@@ -508,7 +513,63 @@ class TestGetUserTransactions:
             headers=created_user_auth_headers,
         )
         assert resp.status_code == 200
-        assert resp.json() == []
+        body = resp.json()
+        assert body["transactions"] == []
+        assert body["total"] == 0
+        assert body["skip"] == 0
+        assert body["limit"] == 10
+        assert body["has_more"] is False
+
+    async def test_pagination_uses_requested_limit_and_has_more(
+        self,
+        client,
+        created_user,
+        created_transaction,
+        created_user_auth_headers,
+        instrument_aapl,
+        instrument_msft,
+    ):
+        for instrument, units, rate in (
+            (instrument_aapl, 10, 150.0),
+            (instrument_msft, 4, 250.0),
+            (instrument_aapl, 6, 155.0),
+        ):
+            response = await client.post(
+                "/api/transactions/",
+                json={
+                    "user_id": created_user["id"],
+                    "type": "buy",
+                    "instrument_id": instrument.id,
+                    "units": units,
+                    "rate": rate,
+                },
+                headers=created_user_auth_headers,
+            )
+            assert response.status_code == 201
+
+        first_page = await client.get(
+            f"/api/users/{created_user['id']}/transactions/?skip=0&limit=1",
+            headers=created_user_auth_headers,
+        )
+        assert first_page.status_code == 200
+        first_page_body = first_page.json()
+        assert len(first_page_body["transactions"]) == 1
+        assert first_page_body["total"] == 4
+        assert first_page_body["skip"] == 0
+        assert first_page_body["limit"] == 1
+        assert first_page_body["has_more"] is True
+
+        last_page = await client.get(
+            f"/api/users/{created_user['id']}/transactions/?skip=3&limit=1",
+            headers=created_user_auth_headers,
+        )
+        assert last_page.status_code == 200
+        last_page_body = last_page.json()
+        assert len(last_page_body["transactions"]) == 1
+        assert last_page_body["total"] == 4
+        assert last_page_body["skip"] == 3
+        assert last_page_body["limit"] == 1
+        assert last_page_body["has_more"] is False
 
 
 class TestPatchUser:

@@ -18,6 +18,8 @@ class CreateTrx(BaseTrx):
 
 
 class ResponseTrx(BaseTrx):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
 
@@ -113,3 +115,12 @@ class PatchInstrument(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class PaginatedTransactions(BaseModel):
+    transactions: list[ResponseTrx]
+
+    total: int
+    skip: int
+    limit: int
+    has_more: bool

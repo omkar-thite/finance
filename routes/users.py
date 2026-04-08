@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, UploadFile, status, Depends, File
+from fastapi import APIRouter, UploadFile, status, Depends, File, Query
 from fastapi.exceptions import HTTPException
 from utils.app_services import update_user_holdings, get_user
 
@@ -15,6 +15,7 @@ from schema import (
     ResponseHoldings,
     PatchHoldings,
     Token,
+    PaginatedTransactions,
 )
 
 from sqlalchemy import select, func
@@ -282,11 +283,13 @@ async def delete_user(
 
 
 # Get all transaction of specific user
-@router.get("/{user_id}/transactions", response_model=list[ResponseTrx])
+@router.get("/{user_id}/transactions", response_model=PaginatedTransactions)
 async def get_user_transactions_api(
     user_id: int,
     current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db)],
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=0, le=10)] = 10,
 ):
     # ownership check
     if current_user.id != user_id:
@@ -303,12 +306,30 @@ async def get_user_transactions_api(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
+    count = await db.execute(
+        select(func.count(models.Transactions.id)).where(
+            models.Transactions.user_id == user_id
+        )
+    )
+    total = count.scalar() or 0
+
     result = await db.execute(
-        select(models.Transactions).where(models.Transactions.user_id == user_id)
+        select(models.Transactions)
+        .where(models.Transactions.user_id == user_id)
+        .order_by(models.Transactions.date_created.desc())
+        .offset(skip)
+        .limit(limit)
     )
     transactions = result.scalars().all()
+    has_more = skip + len(transactions) < total
 
-    return transactions
+    return PaginatedTransactions(
+        transactions=[ResponseTrx.model_validate(tx) for tx in transactions],
+        total=total,
+        skip=skip,
+        has_more=has_more,
+        limit=limit,
+    )
 
 
 # Get user's holdings

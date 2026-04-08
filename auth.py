@@ -15,7 +15,8 @@ from config import settings
 
 password_hash = PasswordHash.recommended()
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# Must match the mounted users login endpoint used by this app.
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/users/token")
 
 
 # password hashing functions

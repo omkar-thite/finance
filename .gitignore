@@ -31,3 +31,5 @@ wheels/
 
 media
 populate_images
+
+dummy_data.py
