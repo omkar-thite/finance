@@ -66,7 +66,7 @@ async def create_transaction_api(
         )
 
     new_trx = models.Transactions(
-        type=trx.type,
+        type_=trx.type_,
         instrument_id=trx.instrument_id,
         units=trx.units,
         rate=trx.rate,

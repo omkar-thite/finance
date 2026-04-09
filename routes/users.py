@@ -16,6 +16,7 @@ from schema import (
     PatchHoldings,
     Token,
     PaginatedTransactions,
+    PaginatedHoldings,
 )
 
 from sqlalchemy import select, func
@@ -315,6 +316,9 @@ async def get_user_transactions_api(
 
     result = await db.execute(
         select(models.Transactions)
+        .options(
+            selectinload(models.Transactions.instrument_rel),
+        )
         .where(models.Transactions.user_id == user_id)
         .order_by(models.Transactions.date_created.desc())
         .offset(skip)
@@ -333,11 +337,13 @@ async def get_user_transactions_api(
 
 
 # Get user's holdings
-@router.get("/{user_id}/holdings", response_model=list[ResponseHoldings])
+@router.get("/{user_id}/holdings", response_model=PaginatedHoldings)
 async def get_user_assets_api(
     user_id: int,
     db: Annotated[AsyncSession, Depends(get_db)],
     current_user: CurrentUser,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=0, le=10)] = 10,
 ):
 
     # ownership check
@@ -355,13 +361,33 @@ async def get_user_assets_api(
             detail=ErrorMessages.User.NOT_FOUND,
         )
 
+    count = await db.execute(
+        select(func.count(models.Holdings.instrument_id)).where(
+            models.Holdings.user_id == user_id
+        )
+    )
+    total = count.scalar() or 0
+
     result = await db.execute(
         select(models.Holdings)
-        .options(selectinload(models.Holdings.transactions))
+        .options(
+            selectinload(models.Holdings.transactions),
+            selectinload(models.Holdings.instrument_rel),
+        )
         .where(models.Holdings.user_id == user_id)
+        .offset(skip)
+        .limit(limit)
     )
     holdings = result.scalars().all()
-    return holdings
+    has_more = skip + len(holdings) < total
+
+    return PaginatedHoldings(
+        holdings=[ResponseHoldings.model_validate(h) for h in holdings],
+        total=total,
+        skip=skip,
+        has_more=has_more,
+        limit=limit,
+    )
 
 
 # Create holding for user

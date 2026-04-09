@@ -5,7 +5,7 @@ from utils.enums import TrxTypeEnum, InstrumentType
 
 
 class BaseTrx(BaseModel):
-    type: TrxTypeEnum
+    type_: TrxTypeEnum
     instrument_id: int
     units: int = Field(gt=0)
     rate: Decimal
@@ -22,6 +22,7 @@ class ResponseTrx(BaseTrx):
 
     id: int
     user_id: int
+    instrument: str | None = None
 
 
 class PatchTrx(BaseModel):
@@ -29,7 +30,7 @@ class PatchTrx(BaseModel):
 
     id: int
     user_id: int  # Remove this after auth implementation
-    type: TrxTypeEnum | None = None
+    type_: TrxTypeEnum | None = None
     instrument_id: int | None = None
     units: int | None = None
     rate: Decimal | None = None
@@ -80,7 +81,9 @@ class CreateHoldings(BaseHoldings):
 
 
 class ResponseHoldings(BaseHoldings):
-    pass
+    model_config = ConfigDict(from_attributes=True)
+
+    instrument: str | None = None
 
 
 class PatchHoldings(BaseModel):
@@ -90,7 +93,7 @@ class PatchHoldings(BaseModel):
 
 
 class BaseInstrument(BaseModel):
-    type: InstrumentType
+    type_: InstrumentType
     symbol: str = Field(max_length=20)
     name: str
 
@@ -107,7 +110,7 @@ class ResponseInstrument(BaseInstrument):
 class PatchInstrument(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    type: InstrumentType | None = None
+    type_: InstrumentType | None = None
     symbol: str | None = None
     name: str | None = None
 
@@ -117,10 +120,16 @@ class Token(BaseModel):
     token_type: str
 
 
-class PaginatedTransactions(BaseModel):
-    transactions: list[ResponseTrx]
-
+class PaginatedResponse(BaseModel):
     total: int
     skip: int
     limit: int
     has_more: bool
+
+
+class PaginatedTransactions(PaginatedResponse):
+    transactions: list[ResponseTrx]
+
+
+class PaginatedHoldings(PaginatedResponse):
+    holdings: list[ResponseHoldings]

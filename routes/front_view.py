@@ -53,7 +53,9 @@ async def user_home_page(
         )
 
     result = await db.execute(
-        select(models.Transactions).where(models.Transactions.user_id == user_id)
+        select(models.Transactions)
+        .options(selectinload(models.Transactions.instrument_rel))
+        .where(models.Transactions.user_id == user_id)
     )
     transactions = result.scalars().all()
 
@@ -69,7 +71,11 @@ async def user_home_page(
 async def all_transactions_page(
     request: Request, db: Annotated[AsyncSession, Depends(get_db)]
 ):
-    result = await db.execute(select(models.Transactions))
+    result = await db.execute(
+        select(models.Transactions).options(
+            selectinload(models.Transactions.instrument_rel)
+        )
+    )
     transactions = result.scalars().all()
     return request.app.state.templates.TemplateResponse(
         request, name="transactions.html", context={"transactions": transactions}
@@ -93,7 +99,9 @@ async def user_transactions_page(
             detail=ErrorMessages.User.NOT_FOUND,
         )
     result = await db.execute(
-        select(models.Transactions).where(models.Transactions.user_id == user_id)
+        select(models.Transactions)
+        .options(selectinload(models.Transactions.instrument_rel))
+        .where(models.Transactions.user_id == user_id)
     )
     transactions = result.scalars().all()
 
@@ -119,7 +127,10 @@ async def user_assets_page(
 
     result = await db.execute(
         select(models.Holdings)
-        .options(selectinload(models.Holdings.transactions))
+        .options(
+            selectinload(models.Holdings.transactions),
+            selectinload(models.Holdings.instrument_rel),
+        )
         .where(models.Holdings.user_id == user_id)
     )
     assets = result.scalars().all()

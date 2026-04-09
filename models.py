@@ -104,7 +104,7 @@ class Transactions(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
-    type: Mapped[TrxTypeEnum] = mapped_column(Enum(TrxTypeEnum), nullable=False)
+    type_: Mapped[TrxTypeEnum] = mapped_column(Enum(TrxTypeEnum), nullable=False)
     units: Mapped[int] = mapped_column(Integer, nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
     charges: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=True, default=0)
@@ -124,6 +124,12 @@ class Transactions(Base):
 
     user: Mapped[Users] = relationship(back_populates="transactions")
     holdings: Mapped[Holdings] = relationship(back_populates="transactions")
+    instrument_rel: Mapped[Instruments] = relationship("Instruments", lazy="selectin")
+
+    @property
+    def instrument(self) -> str | None:
+        rel = self.__dict__.get("instrument_rel")
+        return rel.name if rel else None
 
     __table_args__ = (CheckConstraint("units > 0", name="transactions_units_gt_0"),)
 
@@ -133,12 +139,15 @@ class Instruments(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     symbol: Mapped[str] = mapped_column(String(20), nullable=False)
-    type: Mapped[InstrumentType] = mapped_column(Enum(InstrumentType), nullable=False)
+    type_: Mapped[InstrumentType] = mapped_column(Enum(InstrumentType), nullable=False)
     name: Mapped[str] = mapped_column(TEXT, nullable=False)
 
 
 class Holdings(Base):
     __tablename__ = "holdings"
+
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    average_rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
 
     user_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"), nullable=False, primary_key=True
@@ -146,11 +155,15 @@ class Holdings(Base):
     instrument_id: Mapped[int] = mapped_column(
         ForeignKey("instruments.id"), nullable=False, primary_key=True
     )
-    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
-    average_rate: Mapped[Decimal] = mapped_column(Numeric(12, 4), nullable=False)
     transaction_id: Mapped[int] = mapped_column(
         ForeignKey("transactions.id"), nullable=True, index=True
     )
 
     user: Mapped[Users] = relationship(back_populates="holdings")
     transactions: Mapped[list[Transactions]] = relationship(back_populates="holdings")
+    instrument_rel: Mapped[Instruments] = relationship("Instruments", lazy="selectin")
+
+    @property
+    def instrument(self) -> str | None:
+        rel = self.__dict__.get("instrument_rel")
+        return rel.name if rel else None

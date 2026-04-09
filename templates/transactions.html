@@ -58,23 +58,23 @@
                     <th>Actions</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="transactions-table-body">
                 {% for tr in transactions %}
                 <tr data-transaction-id="{{ tr.id }}" data-transaction-user-id="{{ tr.user_id }}">
                     <td>
-                        <span class="badge {% if tr.type.value == 'buy' %}badge-buy{% else %}badge-sell{% endif %}">
-                            {{ tr.type.value | capitalize }}
+                        <span class="badge {% if tr.type_.value == 'buy' %}badge-buy{% else %}badge-sell{% endif %}">
+                            {{ tr.type_.value | capitalize }}
                         </span>
                     </td>
-                    <td>{{ tr.date }}</td>
-                    <td>{{ tr.instrument }}</td>
+                    <td>{{ tr.date_created }}</td>
+                    <td>{{ tr.instrument if tr.instrument else '-' }}</td>
                     <td>{{ tr.units }}</td>
                     <td>{{ "%.2f"|format(tr.rate) }}</td>
                     <td>
                         {{ "%.2f"|format(tr.units * tr.rate) }}
                     </td>
                     <td class="row-actions" hidden>
-                        <button class="btn-warning edit-transaction-btn" title="Edit" type="button">&#9998;</button>
+                        <button class="btn-warning edit-transaction-btn" title="Edit" _="button">&#9998;</button>
                         <button class="btn-danger delete-transaction-btn" title="Delete" type="button">&#10005;</button>
                     </td>
                 </tr>
@@ -97,6 +97,9 @@
             </tbody>
         </table>
     </div>
+    <div class="table-actions">
+        <button id="transactions-load-more-btn" type="button" class="btn-auth" hidden>Load more</button>
+    </div>
     </div>
 </div>
 
@@ -111,5 +114,5 @@
 {% endblock content %}
 
 {% block page_scripts %}
-<script src="{{ url_for('static', path='js/portfolio_pages.js') }}?v=20260407-1"></script>
+<script src="{{ url_for('static', path='js/portfolio_pages.js') }}?v=20260409-2"></script>
 {% endblock page_scripts %}

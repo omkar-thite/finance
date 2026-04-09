@@ -136,7 +136,7 @@ async def another_user_auth_headers(client, another_user):
 
 @pytest_asyncio.fixture
 async def created_instrument(db_session):
-    instrument = models.Instruments(symbol="AAPL", type="equity", name="Apple Inc")
+    instrument = models.Instruments(symbol="AAPL", type_="equity", name="Apple Inc")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -144,7 +144,7 @@ async def created_instrument(db_session):
 
 @pytest_asyncio.fixture
 async def second_instrument(db_session):
-    instrument = models.Instruments(symbol="MSFT", type="equity", name="Microsoft")
+    instrument = models.Instruments(symbol="MSFT", type_="equity", name="Microsoft")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -154,7 +154,7 @@ async def second_instrument(db_session):
 def buy_transaction_payload(created_user, created_instrument):
     return {
         "user_id": created_user["id"],
-        "type": "buy",
+        "type_": "buy",
         "instrument_id": created_instrument.id,
         "units": 10,
         "rate": 100.0,
@@ -194,7 +194,7 @@ async def test_create_transaction_returns_201_when_payload_is_valid(
 
     assert response.status_code == 201
     body = response.json()
-    assert body["type"] == "buy"
+    assert body["type_"] == "buy"
     assert body["instrument_id"] == buy_transaction_payload["instrument_id"]
     assert body["units"] == 10
     assert body["rate"] == "100.0000"
@@ -211,7 +211,7 @@ async def test_patch_transaction_updates_instrument_id_when_instrument_changes(
         "id": 1,
         "user_id": created_user["id"],
         "instrument_id": second_instrument.id,
-        "type": "buy",
+        "type_": "buy",
         "units": 10,
         "rate": 100.0,
     }
@@ -251,7 +251,13 @@ async def test_get_user_holdings_returns_empty_list_when_user_has_no_holdings(
     )
 
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {
+        "holdings": [],
+        "total": 0,
+        "skip": 0,
+        "limit": 10,
+        "has_more": False,
+    }
 
 
 async def test_get_user_holdings_returns_403_when_user_requests_other_users_holdings(
@@ -318,7 +324,7 @@ async def test_get_user_holdings_returns_404_when_user_does_not_exist(
 
 async def test_update_user_holdings_raises_400_when_sell_units_exceed_available_units():
     db = AsyncMock()
-    sell_txn = SimpleNamespace(type="sell", units=1, rate=Decimal("10.0000"))
+    sell_txn = SimpleNamespace(type_="sell", units=1, rate=Decimal("10.0000"))
 
     db.execute.side_effect = [
         mock_scalars_all([sell_txn]),
@@ -348,8 +354,8 @@ async def test_update_user_holdings_none_when_no_transactions_and_stale_holding(
 
 async def test_update_user_holdings_updates_existing_holding_when_buy_transactions_exist():
     db = AsyncMock()
-    first_buy = SimpleNamespace(type="buy", units=2, rate=Decimal("100.0000"))
-    second_buy = SimpleNamespace(type="buy", units=2, rate=Decimal("200.0000"))
+    first_buy = SimpleNamespace(type_="buy", units=2, rate=Decimal("100.0000"))
+    second_buy = SimpleNamespace(type_="buy", units=2, rate=Decimal("200.0000"))
     existing_holding = SimpleNamespace(
         user_id=1,
         instrument_id=101,

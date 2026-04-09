@@ -63,7 +63,8 @@ async def update_user_holdings(
     average_rate = Decimal("0")
 
     for trx in transactions:
-        if trx.type == TrxTypeEnum.BUY:
+        trx_type = getattr(trx, "type_", getattr(trx, "type", None))
+        if trx_type == TrxTypeEnum.BUY or trx_type == TrxTypeEnum.BUY.value:
             old_cost = average_rate * total_units
             new_cost = Decimal(trx.rate) * trx.units
             total_units += trx.units

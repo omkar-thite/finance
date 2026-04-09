@@ -111,7 +111,7 @@ async def created_transaction(client, created_user, instrument_aapl):
         "/api/transactions/",
         json={
             "user_id": created_user["id"],
-            "type": "buy",
+            "type_": "buy",
             "instrument_id": instrument_aapl.id,
             "units": 10,
             "rate": 150.0,
@@ -147,7 +147,7 @@ async def another_transaction(client, another_user, instrument_msft):
         "/api/transactions/",
         json={
             "user_id": another_user["id"],
-            "type": "buy",
+            "type_": "buy",
             "instrument_id": instrument_msft.id,
             "units": 3,
             "rate": 250.0,
@@ -181,7 +181,7 @@ async def another_user_auth_headers(client, another_user):
 
 @pytest_asyncio.fixture
 async def instrument_tsla(db_session):
-    instrument = models.Instruments(symbol="TSLA", type="equity", name="Tesla")
+    instrument = models.Instruments(symbol="TSLA", type_="equity", name="Tesla")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -189,7 +189,7 @@ async def instrument_tsla(db_session):
 
 @pytest_asyncio.fixture
 async def instrument_goog(db_session):
-    instrument = models.Instruments(symbol="GOOG", type="equity", name="Google")
+    instrument = models.Instruments(symbol="GOOG", type_="equity", name="Google")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -197,7 +197,7 @@ async def instrument_goog(db_session):
 
 @pytest_asyncio.fixture
 async def instrument_msft(db_session):
-    instrument = models.Instruments(symbol="MSFT", type="equity", name="Microsoft")
+    instrument = models.Instruments(symbol="MSFT", type_="equity", name="Microsoft")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -205,7 +205,7 @@ async def instrument_msft(db_session):
 
 @pytest_asyncio.fixture
 async def instrument_aapl(db_session):
-    instrument = models.Instruments(symbol="AAPL", type="equity", name="Apple")
+    instrument = models.Instruments(symbol="AAPL", type_="equity", name="Apple")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -213,7 +213,7 @@ async def instrument_aapl(db_session):
 
 @pytest_asyncio.fixture
 async def instrument_meta(db_session):
-    instrument = models.Instruments(symbol="META", type="equity", name="Meta")
+    instrument = models.Instruments(symbol="META", type_="equity", name="Meta")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -221,7 +221,7 @@ async def instrument_meta(db_session):
 
 @pytest_asyncio.fixture
 async def instrument_nvda(db_session):
-    instrument = models.Instruments(symbol="NVDA", type="equity", name="Nvidia")
+    instrument = models.Instruments(symbol="NVDA", type_="equity", name="Nvidia")
     db_session.add(instrument)
     await db_session.flush()
     return instrument
@@ -378,21 +378,21 @@ class TestCreateTransaction:
             "/api/transactions/",
             json={
                 "user_id": created_user["id"],
-                "type": "buy",
+                "type_": "buy",
                 "instrument_id": instrument_tsla.id,
                 "units": 5,
                 "rate": 200.0,
             },
         )
         assert resp.status_code == 201
-        assert resp.json()["type"] == "buy"
+        assert resp.json()["type_"] == "buy"
 
     async def test_sell(self, client, created_user, instrument_goog):
         resp = await client.post(
             "/api/transactions/",
             json={
                 "user_id": created_user["id"],
-                "type": "sell",
+                "type_": "sell",
                 "instrument_id": instrument_goog.id,
                 "units": 2,
                 "rate": 100.0,
@@ -406,7 +406,7 @@ class TestCreateTransaction:
             "/api/transactions/",
             json={
                 "user_id": 9999,
-                "type": "buy",
+                "type_": "buy",
                 "instrument_id": instrument_aapl.id,
                 "units": 1,
                 "rate": 1.0,
@@ -423,7 +423,7 @@ class TestCreateTransaction:
             "/api/transactions/",
             json={
                 "user_id": created_user["id"],
-                "type": "buy",
+                "type_": "buy",
                 "instrument_id": instrument_aapl.id,
                 "units": 0,
                 "rate": 10.0,
@@ -441,7 +441,7 @@ class TestCreateTransaction:
             "/api/transactions/",
             json={
                 "user_id": created_user["id"],
-                "type": "buy",
+                "type_": "buy",
                 "instrument_id": instrument_meta.id,
                 "units": 2,
                 "rate": 123.45,
@@ -538,7 +538,7 @@ class TestGetUserTransactions:
                 "/api/transactions/",
                 json={
                     "user_id": created_user["id"],
-                    "type": "buy",
+                    "type_": "buy",
                     "instrument_id": instrument.id,
                     "units": units,
                     "rate": rate,
