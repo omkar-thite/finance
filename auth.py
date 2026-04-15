@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from typing import Annotated
 from datetime import UTC, datetime, timedelta
 import jwt
@@ -26,6 +28,14 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return password_hash.verify(plain_password, hashed_password)
+
+
+def generate_reset_token() -> str:
+    return secrets.token_urlsafe(32)
+
+
+def hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 # Create access token
@@ -95,7 +105,10 @@ async def get_current_user(
 
     result = await db.execute(
         select(models.Users)
-        .options(selectinload(models.Users.contact))
+        .options(
+            selectinload(models.Users.contact),
+            selectinload(models.Users.auth),
+        )
         .where(models.Users.id == user_id_int)
     )
     user = result.scalars().first()

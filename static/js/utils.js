@@ -29,3 +29,21 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', toggleDarkMode);
     updateToggleIcon();
 });
+
+// Initialize password visibility toggles
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.password-toggle-btn').forEach(btn => {
+        btn.textContent = 'Show';
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const input = btn.closest('.password-field').querySelector('input[type="password"], input[type="text"]');
+            if (!input) return;
+
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            btn.setAttribute('aria-pressed', isPassword ? 'true' : 'false');
+            btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
+            btn.textContent = isPassword ? 'Hide' : 'Show';
+        });
+    });
+});

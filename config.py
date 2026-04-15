@@ -11,5 +11,16 @@ class Settings(BaseSettings):
 
     max_upload_size_bytes: int = 5 * 1024 * 1024  # 5 MB
 
+    reset_token_expire_minutes: int = 15
+
+    mail_server: str
+    mail_port: int = 587
+    mail_username: str = ""
+    mail_password: SecretStr = SecretStr("")
+    mail_from: str = "no-reply@financeapp.com"
+    mail_use_tls: bool = True
+
+    front_end_url: str = "http://localhost:8000"
+
 
 settings = Settings()

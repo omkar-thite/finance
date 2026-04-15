@@ -35,11 +35,18 @@
 
 			<label class="auth-field" for="login-password">
 				<span>Password</span>
-				<input id="login-password" name="password" type="password" autocomplete="current-password" required>
+				<div class="password-field">
+					<input id="login-password" name="password" type="password" autocomplete="current-password" required>
+					<button type="button" class="password-toggle-btn" aria-label="Show password" aria-pressed="false">Show</button>
+				</div>
 			</label>
 
 			<button class="auth-submit" type="submit">Sign in</button>
 		</form>
+
+		<p class="auth-helper-text">
+			<a href="{{ url_for('forgot_password_page') }}">Forgot your password?</a>
+		</p>
 
 		<p class="auth-switch">
 			New to the app? <a href="{{ url_for('register_page') }}">Create an account</a>

@@ -140,3 +140,25 @@ async def user_assets_page(
         name="assets.html",
         context={"user": user, "assets": assets},
     )
+
+
+@router.get("/forgot-password", include_in_schema=False)
+async def forgot_password_page(request: Request):
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "forgot_password.html",
+        {"title": "Forgot Password"},
+    )
+
+
+@router.get("/reset-password", include_in_schema=False)
+async def reset_password_page(request: Request):
+
+    response = request.app.state.templates.TemplateResponse(
+        request,
+        "reset_password.html",
+        {"title": "Reset Password"},
+    )
+
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response

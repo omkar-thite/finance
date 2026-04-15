@@ -63,23 +63,52 @@
             </form>
 
             <section class="account-reset-section">
-                <h2>Reset Password</h2>
-                <p>This section is UI-only for now. Password reset flow will be enabled in a backend follow-up.</p>
-                <div class="manage-form reset-password-form">
+                <h2>Change Password</h2>
+                <form id="changePasswordForm" class="manage-form reset-password-form" novalidate>
+                    <div id="changePasswordMessage" class="auth-message" role="status" aria-live="polite"></div>
+
                     <label>
                         <span>Current Password</span>
-                        <input type="password" autocomplete="current-password" disabled>
+                        <div class="password-field">
+                            <input
+                                id="changePasswordCurrent"
+                                type="password"
+                                name="current_password"
+                                autocomplete="current-password"
+                                minlength="8"
+                                required>
+                            <button type="button" class="password-toggle-btn" aria-label="Show password" aria-pressed="false">Show</button>
+                        </div>
                     </label>
                     <label>
                         <span>New Password</span>
-                        <input type="password" autocomplete="new-password" disabled>
+                        <div class="password-field">
+                            <input
+                                id="changePasswordNew"
+                                type="password"
+                                name="new_password"
+                                autocomplete="new-password"
+                                minlength="8"
+                                required>
+                            <button type="button" class="password-toggle-btn" aria-label="Show password" aria-pressed="false">Show</button>
+                        </div>
+                        <small class="form-hint">At least 8 characters</small>
                     </label>
                     <label>
                         <span>Confirm New Password</span>
-                        <input type="password" autocomplete="new-password" disabled>
+                        <div class="password-field">
+                            <input
+                                id="changePasswordConfirm"
+                                type="password"
+                                name="confirm_password"
+                                autocomplete="new-password"
+                                minlength="8"
+                                required>
+                            <button type="button" class="password-toggle-btn" aria-label="Show password" aria-pressed="false">Show</button>
+                        </div>
                     </label>
-                    <button type="button" class="btn-auth manage-submit" disabled>Coming Soon</button>
-                </div>
+                    <button type="submit" class="btn-auth btn-neutral">Change Password</button>
+                </form>
             </section>
 
             <section class="account-danger-zone">

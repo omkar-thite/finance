@@ -412,6 +412,99 @@
             });
         }
 
+        const changePasswordForm = document.getElementById('changePasswordForm');
+        if (changePasswordForm) {
+            changePasswordForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                if (!changePasswordForm.checkValidity()) {
+                    changePasswordForm.reportValidity();
+                    return;
+                }
+
+                const currentPassword = String(document.getElementById('changePasswordCurrent')?.value || '').trim();
+                const newPassword = String(document.getElementById('changePasswordNew')?.value || '').trim();
+                const confirmPassword = String(document.getElementById('changePasswordConfirm')?.value || '').trim();
+
+                if (!currentPassword || !newPassword || !confirmPassword) {
+                    modal.info('All fields are required.', 'Validation error');
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    modal.info('New passwords do not match.', 'Validation error');
+                    return;
+                }
+
+                const messageElement = document.getElementById('changePasswordMessage');
+                if (messageElement) {
+                    messageElement.textContent = '';
+                    messageElement.className = 'auth-message';
+                }
+
+                const submitButton = changePasswordForm.querySelector('button[type="submit"]');
+                if (submitButton) {
+                    submitButton.disabled = true;
+                }
+
+                try {
+                    const response = await fetch('/api/users/me/password', {
+                        method: 'PATCH',
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            current_password: currentPassword,
+                            new_password: newPassword,
+                        }),
+                    });
+
+                    if (response.status === 401) {
+                        window.location.assign('/login');
+                        return;
+                    }
+
+                    const body = await response.json().catch(() => ({}));
+
+                    if (!response.ok) {
+                        const errorMessage = window.parseApiError(body, 'Unable to change password. Please verify your current password and try again.');
+                        if (messageElement) {
+                            messageElement.textContent = errorMessage;
+                            messageElement.classList.add('is-error');
+                        }
+                        return;
+                    }
+
+                    // Success
+                    if (messageElement) {
+                        messageElement.textContent = 'Password changed successfully!';
+                        messageElement.classList.add('is-success');
+                    }
+
+                    // Clear the form
+                    changePasswordForm.reset();
+
+                    // Clear message after 3 seconds
+                    setTimeout(() => {
+                        if (messageElement) {
+                            messageElement.textContent = '';
+                            messageElement.className = 'auth-message';
+                        }
+                    }, 3000);
+                } catch (error) {
+                    if (messageElement) {
+                        messageElement.textContent = 'An error occurred. Please try again.';
+                        messageElement.classList.add('is-error');
+                    }
+                } finally {
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                    }
+                }
+            });
+        }
+
         const deleteButton = document.getElementById('delete-account-button');
         if (deleteButton) {
             deleteButton.addEventListener('click', () => {

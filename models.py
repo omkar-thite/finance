@@ -47,6 +47,9 @@ class Users(Base):
     holdings: Mapped[list[Holdings]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    reset_tokens: Mapped[list[PasswordResetToken]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     @property
     def image_path(self) -> str | None:
@@ -167,3 +170,22 @@ class Holdings(Base):
     def instrument(self) -> str | None:
         rel = self.__dict__.get("instrument_rel")
         return rel.name if rel else None
+
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+    )
+
+    user: Mapped[Users] = relationship(back_populates="reset_tokens")

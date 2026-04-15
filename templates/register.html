@@ -50,12 +50,18 @@
 
 			<label class="auth-field" for="register-password">
 				<span>Password</span>
-				<input id="register-password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+				<div class="password-field">
+					<input id="register-password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+					<button type="button" class="password-toggle-btn" aria-label="Show password" aria-pressed="false">Show</button>
+				</div>
 			</label>
 
 			<label class="auth-field" for="register-confirm-password">
 				<span>Confirm password</span>
-				<input id="register-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+				<div class="password-field">
+					<input id="register-confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+					<button type="button" class="password-toggle-btn" aria-label="Show password" aria-pressed="false">Show</button>
+				</div>
 				<p id="register-password-match" class="auth-field-hint" aria-live="polite"></p>
 			</label>
 
