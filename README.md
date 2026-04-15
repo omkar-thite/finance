@@ -56,20 +56,9 @@ Optional variables (defaults shown in code):
 - MAIL_PORT=587
 - MAIL_USERNAME=
 - MAIL_PASSWORD=
-- MAIL_FROM=no-reply@example.com
+- MAIL_FROM=
 - MAIL_USE_TLS=true
-- FRONT_END_URL=http://localhost:8000
-
-Example .env:
-
-SECRET_KEY=replace-with-a-long-random-secret
-MAIL_SERVER=smtp.example.com
-MAIL_PORT=587
-MAIL_USERNAME=your-smtp-user
-MAIL_PASSWORD=your-smtp-password
-MAIL_FROM=no-reply@financeapp.com
-MAIL_USE_TLS=true
-FRONT_END_URL=http://localhost:8000
+- FRONT_END_URL=
 
 4. Start the app:
 
