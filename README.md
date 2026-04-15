@@ -47,6 +47,13 @@ Current implementation includes:
 Required environment variables:
 - SECRET_KEY
 
+To generate a secure SECRET_KEY, you can use Python:
+
+```python
+import secrets
+print(secrets.token_hex(32))
+```
+
 Optional mail environment variables:
 - MAIL_SERVER
 - MAIL_PORT
