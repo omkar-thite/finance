@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import models
 from database import get_db
 from utils.error_messages import ErrorMessages
+from config import is_email_configured
 
 router = APIRouter()
 
@@ -21,7 +22,11 @@ def home_page(request: Request):
 
 @router.get("/login", name="login_page", include_in_schema=False)
 def login_page(request: Request):
-    return request.app.state.templates.TemplateResponse(request, name="login.html")
+    return request.app.state.templates.TemplateResponse(
+        request,
+        name="login.html",
+        context={"email_configured": is_email_configured()},
+    )
 
 
 @router.get("/register", name="register_page", include_in_schema=False)
@@ -147,7 +152,10 @@ async def forgot_password_page(request: Request):
     return request.app.state.templates.TemplateResponse(
         request,
         "forgot_password.html",
-        {"title": "Forgot Password"},
+        {
+            "title": "Forgot Password",
+            "email_configured": is_email_configured(),
+        },
     )
 
 
@@ -157,7 +165,10 @@ async def reset_password_page(request: Request):
     response = request.app.state.templates.TemplateResponse(
         request,
         "reset_password.html",
-        {"title": "Reset Password"},
+        {
+            "title": "Reset Password",
+            "email_configured": is_email_configured(),
+        },
     )
 
     response.headers["Referrer-Policy"] = "no-referrer"

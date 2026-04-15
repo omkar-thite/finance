@@ -42,7 +42,7 @@ from auth import (
     hash_reset_token,
     generate_reset_token,
 )
-from config import settings
+from config import settings, is_email_configured
 from PIL import UnidentifiedImageError
 from utils.image_utils import process_profile_image, delete_profile_image
 from fastapi.concurrency import run_in_threadpool
@@ -98,6 +98,13 @@ async def forgot_password_api(
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # Email feature gate: disabled if mail env vars are not configured
+    if not is_email_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Password reset is not available because mail is not configured.",
+        )
+
     result = await db.execute(
         select(models.User).where(
             func.lower(models.User.email) == request_data.email.lower()
@@ -148,6 +155,13 @@ async def reset_password_api(
     request_data: ResetPasswordRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    # Email feature gate: disabled if mail env vars are not configured
+    if not is_email_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Password reset is not available because mail is not configured.",
+        )
+
     token_hash = hash_reset_token(request_data.token)
 
     result = await db.execute(

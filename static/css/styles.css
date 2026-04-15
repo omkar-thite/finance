@@ -1307,6 +1307,11 @@
     cursor: not-allowed;
 }
 
+.reset-password-form .btn-auth {
+    justify-self: start;
+    width: auto;
+}
+
 .account-danger-zone {
     border-color: color-mix(in srgb, var(--danger-color) 35%, var(--border-color));
 }

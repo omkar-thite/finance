@@ -45,7 +45,13 @@
 		</form>
 
 		<p class="auth-helper-text">
-			<a href="{{ url_for('forgot_password_page') }}">Forgot your password?</a>
+			{% if email_configured %}
+				<a href="{{ url_for('forgot_password_page') }}">Forgot your password?</a>
+			{% else %}
+				<span class="auth-helper-disabled" title="Password reset unavailable (mail not configured)">
+					Password reset unavailable
+				</span>
+			{% endif %}
 		</p>
 
 		<p class="auth-switch">

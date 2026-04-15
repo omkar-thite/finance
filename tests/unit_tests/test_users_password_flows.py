@@ -51,6 +51,11 @@ def override_current_user():
     yield fake_user
 
 
+@pytest.fixture(autouse=True)
+def enable_password_reset_feature(monkeypatch):
+    monkeypatch.setattr(users_route, "is_email_configured", lambda: True)
+
+
 async def test_get_login_page_returns_200_when_route_is_requested(async_client):
     response = await async_client.get("/login")
 
@@ -74,6 +79,40 @@ async def test_get_reset_password_page_sets_no_referrer_header_when_route_is_req
 
     assert response.status_code == 200
     assert response.headers["referrer-policy"] == "no-referrer"
+
+
+async def test_forgot_password_returns_503_when_email_not_configured(
+    async_client,
+    monkeypatch,
+):
+    monkeypatch.setattr(users_route, "is_email_configured", lambda: False)
+
+    response = await async_client.post(
+        "/api/users/forgot-password",
+        json={"email": "alice@example.com"},
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Password reset is not available because mail is not configured."
+    }
+
+
+async def test_reset_password_returns_503_when_email_not_configured(
+    async_client,
+    monkeypatch,
+):
+    monkeypatch.setattr(users_route, "is_email_configured", lambda: False)
+
+    response = await async_client.post(
+        "/api/users/reset-password",
+        json={"token": "valid-token", "new_password": "new-password-1"},
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Password reset is not available because mail is not configured."
+    }
 
 
 async def test_forgot_password_returns_202_with_generic_message_when_user_exists(

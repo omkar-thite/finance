@@ -46,19 +46,16 @@ Current implementation includes:
 
 Required environment variables:
 - SECRET_KEY
-- MAIL_SERVER
 
-Optional variables (defaults shown in code):
-- ALGORITHM=HS256
-- ACCESS_TOKEN_EXPIRE_MINUTES=30
-- RESET_TOKEN_EXPIRE_MINUTES=15
-- MAX_UPLOAD_SIZE_BYTES=5242880
-- MAIL_PORT=587
-- MAIL_USERNAME=
-- MAIL_PASSWORD=
-- MAIL_FROM=
-- MAIL_USE_TLS=true
-- FRONT_END_URL=
+Optional mail environment variables:
+- MAIL_SERVER
+- MAIL_PORT
+- MAIL_USERNAME
+- MAIL_PASSWORD
+- MAIL_FROM
+- MAIL_USE_TLS
+
+If mail settings are not configured, the password reset endpoints and the forgot/reset password pages are disabled. In that case, the app will still run, but password reset functionality will return a 503 response and related links/forms will be hidden in the UI.
 
 4. Start the app:
 
@@ -71,6 +68,7 @@ Optional variables (defaults shown in code):
 Notes:
 - Database tables are auto-created at startup.
 - The local SQLite database file is portfolio.db.
+- `dummy_data.py` is available for local development and can seed example users, instruments, and transactions. It clears existing local app data before seeding, so use it only in a development environment.
 
 ## API overview
 
@@ -85,6 +83,7 @@ Users/auth endpoints (high level):
 - PATCH /api/users/me/password
 - POST /api/users/forgot-password
 - POST /api/users/reset-password
+  - Note: if mail settings are not configured, these routes return 503 and password reset is unavailable.
 - PATCH /api/users/{user_id}/picture
 - DELETE /api/users/{user_id}/picture
 - GET /api/users/{user_id}/transactions
