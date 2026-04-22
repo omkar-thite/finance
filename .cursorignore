@@ -59,9 +59,8 @@ wheels/
 
 .python-version
 
-
 *cache*
-
 *pycache*
 
 media
+
