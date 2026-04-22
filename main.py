@@ -9,16 +9,15 @@ from fastapi.exception_handlers import (
     http_exception_handler,
 )
 
-from database import engine, Base
+from database import engine
 from utils.error_messages import ErrorMessages
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
+    async with engine.begin():
+        yield
     await engine.dispose()
 
 

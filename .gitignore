@@ -32,6 +32,4 @@ wheels/
 media
 populate_images
 
-affected_files.txt
-snapshot.json
-
+ast_snapshot_files

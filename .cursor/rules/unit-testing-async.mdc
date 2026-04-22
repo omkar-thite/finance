@@ -211,7 +211,6 @@ test:
 ## Refactoring Mode 
 - Activated when the user message contains: "enter refactor mode" 
 
-
 - Do NOT infer new expected behavior from the refactored code.
 - NEVER add new test cases unless explicitly asked.
 - NEVER change an existing assertion. If one breaks, REPORT the divergence and STOP.

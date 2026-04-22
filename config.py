@@ -22,6 +22,21 @@ class Settings(BaseSettings):
     mail_from: str = ""
     mail_use_tls: bool = True
 
+    postgres_user: str
+    postgres_password: SecretStr
+    postgres_db: str
+
+    app_user: str
+    app_user_password: SecretStr
+    app_db: str
+    db_port: int
+
+    # non superuser connection
+    database_url: str
+
+    # superuser connection for migrations
+    migration_url: str
+
     front_end_url: str = "http://localhost:8000"
 
 
