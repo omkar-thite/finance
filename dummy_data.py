@@ -7,14 +7,13 @@ from sqlalchemy import delete, select
 import models
 from database import AsyncSessionLocal, engine
 from main import app
-from utils.image_utils import PROFILE_PICS_DIR
 from utils.enums import InstrumentType
 
 USERS = [
     {
         "username": "alpha_investor",
         "email": "alpha@example.com",
-        "password": "TestPassword1!",
+        "password": "   ",
     },
     {
         "username": "beta_trader",
@@ -62,10 +61,11 @@ INSTRUMENTS = [
 ]
 
 TRANSACTIONS_PER_USER = 18
+PROFILE_PICS_DIR = None
 
 
 async def clear_existing_data() -> None:
-    if PROFILE_PICS_DIR.exists():
+    if PROFILE_PICS_DIR:
         for file in PROFILE_PICS_DIR.iterdir():
             if file.is_file() and file.name != ".gitkeep":
                 file.unlink()

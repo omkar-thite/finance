@@ -44,9 +44,16 @@ from auth import (
 )
 from config import settings, is_email_configured
 from PIL import UnidentifiedImageError
-from utils.image_utils import process_profile_image, delete_profile_image
 from fastapi.concurrency import run_in_threadpool
 from email_utils import send_password_reset_email
+
+from utils.image_utils import (
+    process_profile_image,
+    delete_profile_image,
+    upload_profile_image,
+)
+
+from botocore.exceptions import ClientError
 
 router = APIRouter()
 
@@ -460,7 +467,7 @@ async def delete_user(
     await db.commit()
 
     if old_filename:
-        delete_profile_image(old_filename)
+        await delete_profile_image(old_filename)
 
 
 # Get all transaction of specific user
@@ -656,7 +663,7 @@ async def patch_user_holdings_api(
 
 
 @router.patch("/{user_id}/picture", response_model=UserPrivate)
-async def update_profile_picture_api(
+async def upload_profile_picture_api(
     user_id: int,
     file: Annotated[UploadFile, File(...)],
     current_user: CurrentUser,
@@ -679,21 +686,35 @@ async def update_profile_picture_api(
         )
 
     try:
-        new_filename = await run_in_threadpool(process_profile_image, content)
+
+        processed_bytes, new_filename = await run_in_threadpool(
+            process_profile_image, content
+        )
+
     except UnidentifiedImageError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file. Please upload a valid image.",
         ) from err
 
+    # Upload processed image to S3
+    # (run in threadpool since it may involve network I/O and boto3 is blocking)
+    try:
+        await upload_profile_image(processed_bytes, new_filename)
+    except ClientError as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload image. Please try again later.",
+        ) from err
+
     old_filename = current_user.image_file_name
     current_user.image_file_name = new_filename
 
     await db.commit()
-    await db.refresh(current_user, attribute_names=["contact"])
+    await db.refresh(current_user)
 
     if old_filename:
-        await run_in_threadpool(delete_profile_image, old_filename)
+        await delete_profile_image(old_filename)
 
     return current_user
 
@@ -724,6 +745,6 @@ async def delete_profile_picture_api(
     await db.commit()
     await db.refresh(current_user, attribute_names=["contact"])
 
-    await run_in_threadpool(delete_profile_image, old_filename)
+    await delete_profile_image(old_filename)
 
     return current_user

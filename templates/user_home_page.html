@@ -31,8 +31,8 @@
     <!-- Profile Card -->
     <div class="profile-card">
         <div class="profile-avatar-wrap">
-            {% if user and user.image_path %}
-                <img src="{{ url_for('media', path='profile_pics/' ~ user.image_file_name) }}" alt="Profile Picture" class="avatar-img">
+            {% if user and user.image_file_name and s3_endpoint_url %}
+                <img src="{{ s3_endpoint_url.rstrip('/') }}/{{ user.image_file_name.lstrip('/') }}" alt="Profile Picture" class="avatar-img">
             {% else %}
                 <div class="avatar-placeholder">
                     <span>{{ user.username[0] | upper if user else '?' }}</span>

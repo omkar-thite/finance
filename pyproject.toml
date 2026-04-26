@@ -17,6 +17,7 @@ dependencies = [
     "pydantic-extra-types==2.11.0",
     "psycopg[binary]>=3.3.3",
     "alembic>=1.18.4",
+    "boto3>=1.42.96",
 ]
 
 [project.optional-dependencies]

@@ -78,19 +78,27 @@
         }
     }
 
-    function buildProfileImageUrl(imagePath) {
-        const path = String(imagePath || '').trim();
+    function buildProfileImageUrl(imageFileName, imagePath) {
+        const directPath = String(imagePath || '').trim();
+        if (directPath) {
+            return directPath;
+        }
 
-        if (!path) {
+        const filename = String(imageFileName || '').trim();
+        const endpointMeta = document.querySelector('meta[name="app-s3-endpoint-url"]');
+        const endpoint = String(endpointMeta?.getAttribute('content') || '').trim();
+
+        if (!filename || !endpoint) {
             return '';
         }
 
-        return `/${path.replace(/^\/+/, '')}`;
+        return `${endpoint.replace(/\/+$/, '')}/${filename.replace(/^\/+/, '')}`;
     }
 
     function updateProfilePreview(user) {
         const username = String(user.username || '').trim();
         const email = String(user.email || '').trim();
+        const imageFileName = String(user.image_file_name || '').trim();
         const imagePath = String(user.image_path || '').trim();
 
         const displayUsername = document.getElementById('account-display-username');
@@ -112,8 +120,9 @@
         }
 
         if (image && fallback) {
-            if (imagePath) {
-                image.src = buildProfileImageUrl(imagePath);
+            const profileImageUrl = buildProfileImageUrl(imageFileName, imagePath);
+            if (profileImageUrl) {
+                image.src = profileImageUrl;
                 image.hidden = false;
                 fallback.hidden = true;
             } else {
@@ -152,7 +161,7 @@
         }
     }
 
-    function clearPictureSelection(elements) {
+    function clearPictureSelection(elements, state) {
         const {
             pictureInput,
             pictureFileName,
@@ -177,12 +186,17 @@
             picturePreviewImage.removeAttribute('src');
         }
 
+        if (state && state.previewObjectUrl) {
+            URL.revokeObjectURL(state.previewObjectUrl);
+            state.previewObjectUrl = '';
+        }
+
         if (pictureUploadButton) {
             pictureUploadButton.disabled = true;
         }
     }
 
-    function setPictureSelection(elements, file) {
+    function setPictureSelection(elements, state, file) {
         const {
             pictureFileName,
             picturePreview,
@@ -195,7 +209,7 @@
         }
 
         if (!file) {
-            clearPictureSelection(elements);
+            clearPictureSelection(elements, state);
             return;
         }
 
@@ -207,13 +221,18 @@
             pictureUploadButton.disabled = false;
         }
 
-        const reader = new FileReader();
-        reader.addEventListener('load', () => {
-            if (picturePreviewImage) {
-                picturePreviewImage.src = String(reader.result || '');
+        if (state && state.previewObjectUrl) {
+            URL.revokeObjectURL(state.previewObjectUrl);
+            state.previewObjectUrl = '';
+        }
+
+        if (picturePreviewImage) {
+            const previewUrl = URL.createObjectURL(file);
+            picturePreviewImage.src = previewUrl;
+            if (state) {
+                state.previewObjectUrl = previewUrl;
             }
-        });
-        reader.readAsDataURL(file);
+        }
     }
 
     async function initializeAccountPage() {
@@ -248,12 +267,15 @@
             picturePreviewImage,
             pictureUploadButton,
         };
+        const pictureState = {
+            previewObjectUrl: '',
+        };
         let selectedPictureFile = null;
 
         setSidebarLinks(user.id);
         fillForm(user);
         updateProfilePreview(user);
-        clearPictureSelection(pictureElements);
+        clearPictureSelection(pictureElements, pictureState);
         updatePictureStatus('');
 
         if (pictureChooseButton && pictureInput) {
@@ -271,20 +293,20 @@
 
                 if (!file) {
                     selectedPictureFile = null;
-                    clearPictureSelection(pictureElements);
+                    clearPictureSelection(pictureElements, pictureState);
                     updatePictureStatus('');
                     return;
                 }
 
                 if (file.type && !file.type.startsWith('image/')) {
                     selectedPictureFile = null;
-                    clearPictureSelection(pictureElements);
+                    clearPictureSelection(pictureElements, pictureState);
                     updatePictureStatus('Please choose an image file.', 'is-error');
                     return;
                 }
 
                 selectedPictureFile = file;
-                setPictureSelection(pictureElements, file);
+                setPictureSelection(pictureElements, pictureState, file);
                 updatePictureStatus('Preview ready. Upload when you are ready.');
             });
         }
@@ -336,7 +358,7 @@
                     fillForm(user);
                     updateProfilePreview(user);
                     selectedPictureFile = null;
-                    clearPictureSelection(pictureElements);
+                    clearPictureSelection(pictureElements, pictureState);
                     updatePictureStatus('Profile picture uploaded successfully.', 'is-success');
                     await window.updateAuthUI();
                 } catch (error) {
@@ -349,6 +371,13 @@
                 }
             });
         }
+
+        window.addEventListener('beforeunload', () => {
+            if (pictureState.previewObjectUrl) {
+                URL.revokeObjectURL(pictureState.previewObjectUrl);
+                pictureState.previewObjectUrl = '';
+            }
+        });
 
         accountForm.addEventListener('submit', async (event) => {
             event.preventDefault();

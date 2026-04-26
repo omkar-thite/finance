@@ -6,9 +6,8 @@ Provides async support, mock database sessions, and automatic dependency cleanup
 import pytest
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from main import app
-import utils.image_utils as image_utils
 
 
 @pytest.fixture(scope="session")
@@ -29,12 +28,19 @@ def clear_dependency_overrides():
     app.dependency_overrides.clear()
 
 
+# @pytest.fixture(autouse=True)
+# def isolate_profile_pics_dir(tmp_path, monkeypatch):
+#     """Redirect profile picture writes during tests to a temp directory."""
+#     test_profile_pics_dir = tmp_path / "profile_pics"
+#     monkeypatch.setattr(image_utils, "PROFILE_PICS_DIR", test_profile_pics_dir)
+#     return test_profile_pics_dir
+
+
 @pytest.fixture(autouse=True)
-def isolate_profile_pics_dir(tmp_path, monkeypatch):
-    """Redirect profile picture writes during tests to a temp directory."""
-    test_profile_pics_dir = tmp_path / "profile_pics"
-    monkeypatch.setattr(image_utils, "PROFILE_PICS_DIR", test_profile_pics_dir)
-    return test_profile_pics_dir
+def isolate_profile_pics():
+    with patch("utils.image_utils.boto3.client") as mock_client:
+        mock_client.return_value.upload_fileobj = MagicMock()
+        yield mock_client
 
 
 @pytest.fixture

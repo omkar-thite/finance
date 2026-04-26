@@ -593,7 +593,7 @@ class TestPatchUser:
             "username": "alice_updated",
             "email": "alice.updated@example.com",
             "phone_no": "1234567890",
-            "image_path": None,
+            "image_path": "/static/profile_pics/default.jpg",
         }
 
     @pytest.mark.unit
@@ -680,7 +680,9 @@ class TestPatchUser:
         assert response.status_code == 200
         body = response.json()
         assert body["image_path"] is not None
-        assert body["image_path"].startswith("media/profile_pics/")
+        # New logic: S3 URL should be present
+        assert body["image_path"].startswith("http")
+        assert "/profile_pics/" in body["image_path"]
 
     @pytest.mark.unit
     async def test_update_profile_picture_returns_403_for_other_user(

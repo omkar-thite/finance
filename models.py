@@ -15,6 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from config import settings
 from database import Base
 from utils.enums import TrxTypeEnum, InstrumentType
 from decimal import Decimal
@@ -54,8 +55,11 @@ class Users(Base):
     @property
     def image_path(self) -> str | None:
         if self.image_file_name:
-            return f"media/profile_pics/{self.image_file_name}"
-        return None
+            return (
+                f"https://{settings.s3_bucket_name}.s3.{settings.s3_region}.amazonaws.com"
+                f"/profile_pics/{self.image_file_name}"
+            )
+        return "/static/profile_pics/default.jpg"
 
     @property
     def email(self) -> str | None:
